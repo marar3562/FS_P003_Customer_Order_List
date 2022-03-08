@@ -1,0 +1,30 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+df <- read.csv('E:/Documents/fairshares_ccsa/Member Pick-up Details-06_09_2021_test.csv')
+```
+
+
+```{r}
+df_n = df %>% 
+  mutate(Order = strsplit(as.character(Order), ",")) %>%
+  unnest(Order) %>% 
+  mutate(pickuptime = ifelse(str_detect(Order, "Pickup Time"), TRUE, FALSE)) %>% 
+  group_by(Pickup.Site, First.Name, Last.Name) %>% 
+  arrange(Pickup.Site, First.Name, Last.Name) %>% 
+  mutate(rank_v = rank(row_number()),
+         group = ifelse(rank_v == 1, TRUE, FALSE),
+         rows= max(rank_v)
+         )
+
+```
+

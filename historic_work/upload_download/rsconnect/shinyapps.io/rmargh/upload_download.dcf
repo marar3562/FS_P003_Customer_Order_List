@@ -1,0 +1,12 @@
+name: upload_download
+title: upload_download
+username:
+account: rmargh
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 4326031
+bundleId: 4824499
+url: https://rmargh.shinyapps.io/upload_download/
+when: 1626400062.43619
+asMultiple: FALSE
+asStatic: FALSE
