@@ -1,0 +1,96 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+library(tidyverse)
+```
+
+
+```{r}
+df = readxl::read_excel('E:/Documents/fair_shares_ds_projects/FS_P003_Customer_Order_List/download_long_test.xlsx')
+df = readxl::read_excel('E:/Documents/fair_shares_ds_projects/FS_P003_Customer_Order_List/download_long_test2.xlsx')
+```
+
+```{r}
+df_1 = df %>% 
+  group_by(Customer) %>% 
+  mutate(n = n()) %>% 
+  ungroup() %>% 
+  arrange(Group, desc(n)) ## would also need pickup time as well as last / first name
+
+df_cond = df_1 %>% 
+  select(Customer, Group, n) %>% 
+  distinct()
+
+column1 = as.data.frame(NULL)
+column2 = as.data.frame(NULL)
+page = 1
+c1_rows = 0
+c2_rows = 0
+c1_cust = 0
+c2_cust = 0
+row_max = 44
+for (i in 1:dim(df_cond)[1]) {
+  if (dim(column1)[1] == 0 & dim(column2)[1] == 0 & i == 1) {
+    column1 = column1 %>% 
+      rbind(df_cond[i,] %>% 
+              mutate(page_n = page
+                     )
+            )
+    c1_rows = column1$n[dim(column1)[1]]
+    c1_cust = 1
+  } else if (dim(column1)[1] == 1 & dim(column2)[1] == 0 & i == 2) {
+    column2 = column2 %>% 
+      rbind(df_cond[i,] %>% 
+              mutate(page_n = page
+                     )
+            )
+    c2_rows = column2$n[dim(column2)[1]]
+    c2_cust = 1
+  } else {
+    if (floor((df_cond$n[i] + c1_rows)/row_max) > 0 & floor((df_cond$n[i] + c2_rows)/row_max) > 0) {
+      page = page+1
+      column1 = column1 %>% 
+        rbind(df_cond[i,] %>% 
+              mutate(page_n = page
+                     )
+            )
+      c1_rows = column1$n[dim(column1)[1]]
+      c2_rows = 0
+      c1_cust = 1
+      c2_cust = 0
+    } else if (floor((df_cond$n[i] + c1_rows)/row_max) > 0 & floor((df_cond$n[i] + c2_rows)/row_max) == 0) {
+      column2 = column2 %>% 
+        rbind(df_cond[i,] %>% 
+              mutate(page_n = page
+                     )
+            )
+      c2_rows = c2_rows + column2$n[dim(column2)[1]]
+      c2_cust = c2_cust + 1
+    } else if (c1_cust > c2_cust) {
+      column2 = column2 %>% 
+        rbind(df_cond[i,] %>% 
+              mutate(page_n = page
+                     )
+            )
+      c2_rows = c2_rows + column2$n[dim(column2)[1]]
+      c2_cust = c2_cust + 1
+    } else {
+      column1 = column1 %>% 
+        rbind(df_cond[i,] %>% 
+              mutate(page_n = page
+                     )
+            )
+      c1_rows = c1_rows + column1$n[dim(column1)[1]]
+      c1_cust = c1_cust + 1
+    }
+  }
+  print(df_cond$n[i])
+}
+
+```
+
