@@ -1,0 +1,32 @@
+---
+title: "Google Sheets Data"
+output: html_notebook
+---
+
+## libraries
+
+```{r}
+library(googlesheets4)
+library(tidyverse)
+```
+
+
+```{r}
+gs4_auth(email = "")
+```
+
+
+```{r}
+df_sh = range_read('1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ'
+                ,sheet = 'shares'
+                ,col_types = 'cc--'
+                ,skip = 1
+)
+
+sh_delete = range_read('1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ'
+                ,sheet = 'delete'
+                ,col_types = 'c'
+)
+
+```
+

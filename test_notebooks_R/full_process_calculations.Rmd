@@ -11,6 +11,7 @@ setwd(directory)
 
 library(tidyverse)
 library(DT)
+library(googlesheets4)
 library(emoji)
 library(emo)
 ```
@@ -20,35 +21,74 @@ library(emo)
 ```{r}
 file_name = 'Member Pick-up Details-03_23_2022.csv'
 # file_name = 'Member Pick-up Details-06_09_2021.csv'
-df_orig = read.csv(paste0(directory,'/farmigo_downloads/',file_name)) %>% 
-  rename_all(tolower) %>% 
-  rename(group_name = pickup.site, firstname = first.name, lastname = last.name) %>% 
+df_orig = read.csv(paste0(directory,'/farmigo_downloads/',file_name)) |> 
+  rename_all(tolower) |> 
+  rename(group_name = pickup.site, firstname = first.name, lastname = last.name) |> 
   mutate(id = row_number())
+```
+
+## connect to settings sheet
+
+```{r}
+gs4_auth(email = "")
+```
+
+## load settings data
+
+```{r}
+sh_shares = range_read('1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ'
+                ,sheet = 'shares'
+                ,col_types = 'cc--'
+                ,skip = 1
+)
+
+sh_delete = range_read('1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ'
+                ,sheet = 'delete'
+                ,col_types = 'c'
+)
 ```
 
 ## Make data long and separate date to be processed without quantity
 
 ```{r}
-df_orig_long = df_orig %>% 
-  mutate(order = strsplit(as.character(order), ",")) %>%
-  unnest(order) %>% 
+df_orig_long = df_orig  |>  
+  mutate(order = strsplit(as.character(order), ",")) |>
+  unnest(order) |> 
   mutate(pickuptime = ifelse(str_detect(order, "Pickup Time"), 2, NA),
-         order = trimws(order)) %>% 
-  separate(order, into = c('quantity','item'), sep = 'x', extra = "merge") %>% 
+         order = trimws(order)) |> 
+  separate(order, into = c('quantity','item'), sep = 'x', extra = "merge") |> 
   mutate(item = ifelse(is.na(item) & !is.na(quantity), quantity, item)
          ,quantity = ifelse(item == quantity, NA, quantity)
          ,group_bool = ifelse(is.na(quantity) & !is.na(item), 1, NA)
          ,rank = ifelse(!is.na(group_bool), group_bool,
                         ifelse(!is.na(pickuptime), pickuptime, 3))
          ,name_long = paste0(lastname,', ',firstname,' [',id,']')
-         ) %>% 
-  select(-group_bool, -pickuptime) %>% 
-  arrange(group_name, lastname, firstname, id, rank) #%>% 
-#   group_by(group_name, lastname, firstname) %>% 
-#   mutate(rank_v = rank(row_number()),
-#          rows= max(rank_v)
-#          ) %>% 
-#   ungroup()
+         ) |> 
+  select(-group_bool, -pickuptime) |> 
+  rbind(df_orig |> #bringing in a new row for each group_name
+          select(group_name) |> 
+          distinct() |> 
+          mutate(firstname = '0'
+                 ,lastname = '0'
+                 ,quantity = NA
+                 ,item = group_name
+                 ,id = 0
+                 ,rank = -1
+                 ,name_long = paste0(lastname,', ',firstname,' [',id,']')
+                  )
+        ) |> 
+    rbind(df_orig |> #bringing in a new row for each member name
+          select(group_name, firstname, lastname, id) |> 
+          distinct() |> 
+          mutate(quantity = NA
+                 ,item = paste0(lastname,', ',firstname)
+                 ,rank = 0
+                 ,name_long = paste0(lastname,', ',firstname,' [',id,']')
+                  ) |> 
+          select(group_name, firstname, lastname, quantity, item, id, rank, name_long)
+        ) |> 
+  arrange(group_name, lastname, firstname, id, rank) 
+
 df_orig_long
 
 ```
@@ -88,10 +128,13 @@ kwa_keep = NA
 kwb_keep = NA
 kwm_keep = NA
 
-df_defaults = data.frame(group_name = c('Fair Shares Wednesday Pickup', 'Fair Shares Thursday Pickup',
-                                        'FSA', 'FSB', 'FSC-W', 'FSC-T', 'FSD', 'FSMini-w', 'FSMini-t',
-                                        'UCA', 'UCB', 'UCM', 'KWA', 'KWB', 'KWM'
-                                        )
+# shares = c('Fair Shares Wednesday Pickup', 'Fair Shares Thursday Pickup',
+#            'FSA', 'FSB', 'FSC-W', 'FSC-T', 'FSD', 'FSMini-w', 'FSMini-t',
+#            'UCA', 'UCB', 'UCM', 'KWA', 'KWB', 'KWM'
+#            )
+shares = sh_shares$group_name
+
+df_defaults = data.frame(group_name = shares
                          ,name_long = c(fs_w_default, fs_t_default, 
                                         fsa_default, fsb_default, 
                                         fsc_w_default, fsc_t_default, fsd_default, fsm_w_default, fsm_t_default, 
@@ -107,61 +150,61 @@ df_defaults = data.frame(group_name = c('Fair Shares Wednesday Pickup', 'Fair Sh
 
 
   
-default_customers = df_orig_long %>% 
-  inner_join(df_orig_long %>% 
-              inner_join(df_defaults %>% 
+default_customers = df_orig_long |> 
+  inner_join(df_orig_long |> 
+              inner_join(df_defaults |> 
                            filter(!is.na(name_long))
                          , by = c('group_name', 'name_long')
-                         ) %>% 
-              filter(rank >= 3) %>% 
-              select(id, group_name, item) %>% 
-              distinct() %>% 
-              group_by(id) %>% 
+                         ) |> 
+              filter(rank >= 3) |> 
+              select(id, group_name, item) |> 
+              distinct() |> 
+              group_by(id) |> 
               mutate(rank_v = rank(row_number()),
                      default_rows= max(rank_v)
-                     ) %>%
-              ungroup() %>% 
+                     ) |>
+              ungroup() |> 
               select(-id, -rank_v)
             , by = c('group_name', 'item')
-            ) %>% 
-  filter(rank >= 3) %>% 
-  select(id, name_long, group_name, item, default_rows) %>% 
-  distinct() %>% 
-  group_by(id) %>% 
+            ) |> 
+  filter(rank >= 3) |> 
+  select(id, name_long, group_name, item, default_rows) |> 
+  distinct() |> 
+  group_by(id) |> 
   mutate(rank_v = rank(row_number()),
          customer_rows = max(rank_v)
-         ) %>%
-  ungroup() %>% 
-  filter(default_rows == customer_rows) %>% 
-  left_join(df_defaults %>% 
+         ) |>
+  ungroup() |> 
+  filter(default_rows == customer_rows) |> 
+  left_join(df_defaults |> 
               filter(!is.na(name_long))
             , by = c('group_name', 'name_long')
-            ) %>% 
-  mutate(keep_remove = ifelse(is.na(keep_remove), TRUE, keep_remove)) %>% 
-  select(id, keep_remove) %>% 
+            ) |> 
+  mutate(keep_remove = ifelse(is.na(keep_remove), TRUE, keep_remove)) |> 
+  select(id, keep_remove) |> 
   distinct() 
   
 
-df_long_def = df_orig_long %>% 
-  filter(id %in% (default_customers %>% filter(keep_remove == TRUE))$id) %>% 
-  filter(rank <= 2) %>% 
-  rbind(df_orig_long %>% 
-          filter(id %in% (default_customers %>% filter(keep_remove == TRUE))$id) %>% 
-          filter(rank >= 3) %>% 
+df_long_def = df_orig_long |> 
+  filter(id %in% (default_customers |> filter(keep_remove == TRUE))$id) |> 
+  filter(rank <= 2) |> 
+  rbind(df_orig_long |> 
+          filter(id %in% (default_customers |> filter(keep_remove == TRUE))$id) |> 
+          filter(rank >= 3) |> 
           mutate(quantity = NA,
-                 item = 'DEFAULT TRADEABLE ITEMS') %>% 
+                 item = 'DEFAULT TRADEABLE ITEMS') |> 
           distinct()
-  ) %>% 
-  rbind(df_orig_long %>% 
+  ) |> 
+  rbind(df_orig_long |> 
           filter(!id %in% default_customers$id)
-  ) %>% 
+  ) |> 
   arrange(group_name, lastname, firstname, id, rank)
   
-df_long_def %>% 
+df_long_def |> 
   inner_join(default_customers
              , by = c('id')
-             ) %>% 
-  select(group_name, lastname, firstname, id, keep_in_output = keep_remove) %>% 
+             ) |> 
+  select(group_name, lastname, firstname, id, keep_in_output = keep_remove) |> 
   distinct()
 
 ```
@@ -170,61 +213,135 @@ df_long_def %>%
 ## Delete List
 
 ```{r}
-delete_list_permanent = c('1 $ New Freezer Donation','1 $ $ for green bags donation','1 $ Food for Ferals Donation','1 $ Food For FS Cats Donation','1 $ Food Pantry Donation','1 $ Freezer Repair Donation','1 $ Paper for Paper - Donation','1 $ Paper for Plastic Donation','1 Each Extra Credit')
+# delete_list_permanent = c('1 $ New Freezer Donation','1 $ $ for green bags donation','1 $ Food for Ferals Donation','1 $ Food For FS Cats Donation','1 $ Food Pantry Donation','1 $ Freezer Repair Donation','1 $ Paper for Paper - Donation','1 $ Paper for Plastic Donation','1 Each Extra Credit')
 
-delete_list_items = df_long_def %>% 
-  filter(item %in% delete_list_permanent) %>% 
-  group_by(item) %>% 
+delete_list_permanent = sh_delete$item
+
+delete_list_items = df_long_def |> 
+  filter(item %in% delete_list_permanent) |> 
+  group_by(item) |> 
   summarise(Count = n())
 
 delete_list_items
 
-delete_no_share = df_long_def %>% 
-  inner_join(df_long_def %>% 
+delete_no_share = df_long_def |> 
+  inner_join(df_long_def |> 
                filter(item %in% c('1 No Share - Order Only (even wk)',
                                   '1 No Share - Order Only (odd wk)')
-                      ) %>% 
-               select(id) %>% 
+                      ) |> 
+               select(id) |> 
                distinct()
              , by = c('id')
-             ) %>% 
-  group_by(id) %>% 
+             ) |> 
+  group_by(id) |> 
   mutate(rank_v = rank(row_number()),
          rows= max(rank_v)
-         ) %>%
-  ungroup() %>% 
-  filter(rows == 1) %>% 
-  select(id) %>% 
+         ) |>
+  ungroup() |> 
+  filter(rows == 1) |> 
+  select(id) |> 
   distinct()
 
-df_long_def %>% 
-  filter(id %in% delete_no_share$id) %>% 
-  select(group_name, lastname, firstname, item) %>% 
+df_long_def |> 
+  filter(id %in% delete_no_share$id) |> 
+  select(group_name, lastname, firstname, item) |> 
   distinct()
 
-df_long_del = df_long_def %>% 
-  filter(!item %in% delete_list_permanent) %>% 
+df_long_del = df_long_def |> 
+  filter(!item %in% delete_list_permanent) |> 
   filter(!id %in% delete_no_share$id)
 
-df_long_del %>% head(20)
+df_long_del |> head(20)
 
 ```
 
 ## Pickup Times found
 
 ```{r}
-pickup_time_counts = df_long_del %>% 
-  filter(rank == 2) %>% 
-  group_by(Time = item) %>% 
-  summarise(count = n()) %>% 
-  ungroup() %>% 
-  mutate(val = Time) %>% 
-  separate(val, into = c('q','time','description'), sep = ' ', extra = "merge") %>% 
-  arrange(description, time, q) %>% 
+pickup_time_counts = df_long_del |> 
+  filter(rank == 2) |> 
+  group_by(Time = item) |> 
+  summarise(count = n()) |> 
+  ungroup() |> 
+  mutate(val = Time) |> 
+  separate(val, into = c('q','time','description'), sep = ' ', extra = "merge") |> 
+  arrange(description, time, q) |> 
   select(Time, count)
 
 pickup_time_counts
 ```
+
+## Highlight Share / customer names (via Google Sheets)
+
+```{r}
+df_long_sh_color = df_long_del |> 
+  left_join(sh_shares
+            , by = c('group_name')
+            ) |> 
+  mutate(highlight_color = ifelse(rank <= 0, highlight_color, NA))
+
+write_df = df_long_sh_color |> 
+  select(item)
+
+ss = gs4_create(name = 'test', sheets = write_df )
+
+range_delete(ss, range = "1") # remove column header
+
+test_color = df_long_sh_color |> 
+  mutate(ss_cell = paste0('A',row_number())) |> 
+  filter(!is.na(highlight_color)) #|> 
+  # group_by(highlight_color) |> 
+  # summarise(ss_cells = toString(ss_cell)) |> 
+  # ungroup()
+
+for (i in (test_color |> select(highlight_color) |> distinct() |> pull())) {
+  print(i)
+  c = data.frame(c = str_replace_all(
+                      str_replace_all(
+                        str_replace_all(
+                          str_replace_all(
+                            i
+                          ,'rgb','')
+                        ,'\\(','')
+                      ,'\\)','')
+                    ,' ',''))
+
+  c = c |> 
+    separate(c, into = c('r','g','b')) |> 
+    mutate(r = as.integer(r)
+           ,g = as.integer(g)
+           ,b = as.integer(b)
+           )
+  
+  color_background <- googlesheets4:::CellData(
+    userEnteredFormat = googlesheets4:::new(
+      "CellFormat",
+      backgroundColor = googlesheets4:::new(
+        "Color",
+        red = c$r[1] / 255, green = c$g[1] / 255, blue = c$b[1] / 255
+      )
+      # ,textFormat = googlesheets4:::new(
+      #   "Bold"
+      #   , TRUE
+      # )
+    )
+  )
+  for (j in (test_color |> filter(highlight_color == i) |> select(ss_cell) |> distinct() |> pull())) {
+    range_flood(ss, range = j, cell = color_background)
+  }
+
+}
+
+library(googledrive)
+
+drive_auth(email = '')
+
+fldr = googledrive::drive_find(type = "folder", pattern = "customer_order_list_drop_location_test")
+
+googledrive::drive_mv(ss, path = fldr, name = 'test')
+
+```
+
 
 
 ```{r}
