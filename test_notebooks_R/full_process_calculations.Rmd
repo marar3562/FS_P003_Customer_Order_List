@@ -12,6 +12,7 @@ setwd(directory)
 library(tidyverse)
 library(DT)
 library(googlesheets4)
+library(openxlsx)
 library(emoji)
 library(emo)
 ```
@@ -38,7 +39,7 @@ gs4_auth(email = "")
 ```{r}
 sh_shares = range_read('1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ'
                 ,sheet = 'shares'
-                ,col_types = 'cc--'
+                ,col_types = 'ccc--'
                 ,skip = 1
 )
 
@@ -123,6 +124,7 @@ df_long_tm = df_orig_long |>
       rename(time_descr = item)
     , by = c('id')
   ) |> 
+  mutate(description = ifelse(rank == -1, '.....', description)) |> 
   arrange(group_name, description, time, lastname, firstname, id, rank) 
 
 df_long_tm
@@ -293,12 +295,12 @@ df_long_del |> head(20)
 
 ## Highlight Share / customer names (via Google Sheets)
 
-```{r}
+```{r eval=FALSE}
 df_long_sh_color = df_long_del |> 
   left_join(sh_shares
             , by = c('group_name')
             ) |> 
-  mutate(highlight_color = ifelse(rank <= 0, highlight_color, NA))
+  mutate(highlight_color_rgb = ifelse(rank <= 0, highlight_color_rgb, NA))
 
 write_df = df_long_sh_color |> 
   select(item)
@@ -309,12 +311,12 @@ range_delete(ss, range = "1") # remove column header
 
 test_color = df_long_sh_color |> 
   mutate(ss_cell = paste0('A',row_number())) |> 
-  filter(!is.na(highlight_color)) #|> 
-  # group_by(highlight_color) |> 
+  filter(!is.na(highlight_color_rgb)) #|> 
+  # group_by(highlight_color_rgb) |> 
   # summarise(ss_cells = toString(ss_cell)) |> 
   # ungroup()
 
-for (i in (test_color |> select(highlight_color) |> distinct() |> pull())) {
+for (i in (test_color |> select(highlight_color_rgb) |> distinct() |> pull())) {
   print(i)
   c = data.frame(c = str_replace_all(
                       str_replace_all(
@@ -346,7 +348,7 @@ for (i in (test_color |> select(highlight_color) |> distinct() |> pull())) {
       # )
     )
   )
-  for (j in (test_color |> filter(highlight_color == i) |> select(ss_cell) |> distinct() |> pull())) {
+  for (j in (test_color |> filter(highlight_color_rgb == i) |> select(ss_cell) |> distinct() |> pull())) {
     range_flood(ss, range = j, cell = color_background)
   }
 
@@ -360,6 +362,46 @@ fldr = googledrive::drive_find(type = "folder", pattern = "customer_order_list_d
 
 googledrive::drive_mv(ss, path = fldr, name = 'test')
 
+```
+
+## Highlight Share / customer names (via Excel)
+
+```{r}
+
+df_long_sh_color = df_long_del |> 
+  left_join(sh_shares
+            , by = c('group_name')
+            ) |> 
+  mutate(highlight_color_hex = ifelse(rank <= 0, highlight_color_hex, NA))
+
+write_df = df_long_sh_color |> 
+  select(item)
+
+wb <- createWorkbook(title = 'test')
+addWorksheet(wb, "testing")
+writeData(wb, "testing", write_df, colNames = FALSE)
+#deleteData(wb, "testing", cols = 1, rows = 1)
+
+test_color = df_long_sh_color |> 
+  mutate(ss_cell = row_number()) |> 
+  filter(!is.na(highlight_color_hex)) #|> 
+  # group_by(highlight_color_hex) |> 
+  # summarise(ss_cells = toString(ss_cell)) |> 
+  # ungroup()
+
+setColWidths(wb, "testing", cols = 1:2, widths = 44)
+
+for (i in (test_color |> select(highlight_color_hex) |> distinct() |> pull())) {
+  print(i)
+  bhfill_style <- createStyle(bgFill = i, halign = "center", textDecoration = "bold") #having trouble with centering text in column width
+
+  for (j in (test_color |> filter(highlight_color_hex == i) |> select(ss_cell) |> distinct() |> pull())) {
+    conditionalFormatting(wb, "testing", cols = 1, rows = j, rule = "!=0", style = bhfill_style)
+  }
+
+}
+
+openXL(wb)
 ```
 
 
