@@ -93,6 +93,42 @@ df_orig_long
 
 ```
 
+## Pickup Times found
+
+```{r}
+pickup_time = df_orig_long |> 
+  filter(rank == 2) |> 
+  group_by(Time = item) |> 
+  summarise(count = n()) |> 
+  ungroup() |> 
+  mutate(val = Time) |> 
+  separate(val, into = c('q','time','description'), sep = ' ', extra = "merge") |> 
+  arrange(description, time, q) 
+
+pickup_time_counts = pickup_time |> 
+  select(Time, count)
+
+pickup_time_counts
+
+df_long_tm = df_orig_long |> 
+  left_join(
+    df_orig_long |> 
+      filter(rank == 2) |> 
+      select(id, item) |> 
+      distinct() |> 
+      left_join(pickup_time |> 
+                  select(item = Time, description, time)
+                , by = c('item')
+      ) |> 
+      rename(time_descr = item)
+    , by = c('id')
+  ) |> 
+  arrange(group_name, description, time, lastname, firstname, id, rank) 
+
+df_long_tm
+```
+
+
 ## Default Orders
 
 ```{r}
@@ -150,8 +186,8 @@ df_defaults = data.frame(group_name = shares
 
 
   
-default_customers = df_orig_long |> 
-  inner_join(df_orig_long |> 
+default_customers = df_long_tm |> 
+  inner_join(df_long_tm |> 
               inner_join(df_defaults |> 
                            filter(!is.na(name_long))
                          , by = c('group_name', 'name_long')
@@ -185,20 +221,20 @@ default_customers = df_orig_long |>
   distinct() 
   
 
-df_long_def = df_orig_long |> 
+df_long_def = df_long_tm |> 
   filter(id %in% (default_customers |> filter(keep_remove == TRUE))$id) |> 
   filter(rank <= 2) |> 
-  rbind(df_orig_long |> 
+  rbind(df_long_tm |> 
           filter(id %in% (default_customers |> filter(keep_remove == TRUE))$id) |> 
           filter(rank >= 3) |> 
           mutate(quantity = NA,
                  item = 'DEFAULT TRADEABLE ITEMS') |> 
           distinct()
   ) |> 
-  rbind(df_orig_long |> 
+  rbind(df_long_tm |> 
           filter(!id %in% default_customers$id)
   ) |> 
-  arrange(group_name, lastname, firstname, id, rank)
+  arrange(group_name, description, time, lastname, firstname, id, rank)
   
 df_long_def |> 
   inner_join(default_customers
@@ -244,7 +280,7 @@ delete_no_share = df_long_def |>
 
 df_long_def |> 
   filter(id %in% delete_no_share$id) |> 
-  select(group_name, lastname, firstname, item) |> 
+  select(group_name, description, time, lastname, firstname, item) |> 
   distinct()
 
 df_long_del = df_long_def |> 
@@ -253,22 +289,6 @@ df_long_del = df_long_def |>
 
 df_long_del |> head(20)
 
-```
-
-## Pickup Times found
-
-```{r}
-pickup_time_counts = df_long_del |> 
-  filter(rank == 2) |> 
-  group_by(Time = item) |> 
-  summarise(count = n()) |> 
-  ungroup() |> 
-  mutate(val = Time) |> 
-  separate(val, into = c('q','time','description'), sep = ' ', extra = "merge") |> 
-  arrange(description, time, q) |> 
-  select(Time, count)
-
-pickup_time_counts
 ```
 
 ## Highlight Share / customer names (via Google Sheets)
