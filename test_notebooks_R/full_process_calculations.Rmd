@@ -377,7 +377,7 @@ df_long_sh_color = df_long_del |>
 write_df = df_long_sh_color |> 
   select(item)
 
-wb <- createWorkbook(title = 'test')
+wb <- createWorkbook(title = 'TestFile')
 addWorksheet(wb, "testing")
 writeData(wb, "testing", write_df, colNames = FALSE)
 #deleteData(wb, "testing", cols = 1, rows = 1)
@@ -393,15 +393,53 @@ setColWidths(wb, "testing", cols = 1:2, widths = 44)
 
 for (i in (test_color |> select(highlight_color_hex) |> distinct() |> pull())) {
   print(i)
-  bhfill_style <- createStyle(bgFill = i, halign = "center", textDecoration = "bold") #having trouble with centering text in column width
+  bhfill_style <- createStyle(bgFill = i, textDecoration = "bold") #having trouble with centering text in column width
 
   for (j in (test_color |> filter(highlight_color_hex == i) |> select(ss_cell) |> distinct() |> pull())) {
-    conditionalFormatting(wb, "testing", cols = 1, rows = j, rule = "!=0", style = bhfill_style)
+    conditionalFormatting(wb, "testing", rule = "!=0", cols = 1, rows = j, style = bhfill_style)
+    addStyle(wb, "testing", cols = 1, rows = j, style = createStyle(halign = "center"))
   }
 
 }
 
+bold_style <- createStyle(textDecoration = "bold")
+#contains logic
+conditionalFormatting(wb, "testing" 
+                      , type = "contains"
+                      , rule = "Pickup Time"
+                      , cols = 1
+                      , rows = 1:dim(write_df)[1]
+                      , style = bold_style)
+#equal to logic
+conditionalFormatting(wb, "testing"
+                      , type = "expression"
+                      , rule = paste0('==\"','1 Dozen Eggs','\"')
+                      , cols = 1
+                      , rows = 1:dim(write_df)[1]
+                      , style = createStyle(bgFill = '#ffff00')
+                      )
+#starts with logic
+conditionalFormatting(wb, "testing"
+                      , type = "beginswith"
+                      , rule = "64 Oz. Milk - Whole"
+                      , cols = 1
+                      , rows = 1:dim(write_df)[1]
+                      , style = createStyle(bgFill = '#00ffff')
+                      )
+
+#ends with logic
+conditionalFormatting(wb, "testing"
+                      , type = "endswith"
+                      , rule = "Green Curly"
+                      , cols = 1
+                      , rows = 1:dim(write_df)[1]
+                      , style = createStyle(bgFill = '#00ff00')
+                      )
+
+
 openXL(wb)
+
+saveWorkbook(wb, "TestFile.xlsx", overwrite = TRUE)
 ```
 
 

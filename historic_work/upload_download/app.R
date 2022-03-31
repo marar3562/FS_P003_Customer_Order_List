@@ -9,6 +9,7 @@ library(shiny)
 library(vroom)
 library(tidyverse)
 library(tools)
+library(openxlsx)
 
 # Define UI for data upload app ----
 ui_upload <- sidebarLayout(
@@ -221,11 +222,16 @@ server <- function(input, output) {
     # This App works on desktop but when downloading not sure how to get file. Still need to remedy issue.
     output$download <- downloadHandler(
         filename = function() {
-            paste("test",".csv", sep = "")
+            # paste("test",".csv", sep = "")
+            paste("test",".xlsx", sep = "")
         },
         content = function(file) {
             #vroom::vroom_write(tidied(), file)
-            write.csv(as.data.frame(tidied()), file, row.names = FALSE)
+            #write.csv(as.data.frame(tidied()), file, row.names = FALSE)
+            wb <- createWorkbook(title = 'test')
+            addWorksheet(wb, "testing")
+            writeData(wb, "testing", as.data.frame(tidied()))
+            saveWorkbook(wb, file, overwrite = TRUE)
         })
     
 }
