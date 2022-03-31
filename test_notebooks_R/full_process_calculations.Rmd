@@ -364,6 +364,7 @@ googledrive::drive_mv(ss, path = fldr, name = 'test')
 
 ```
 
+
 ## Highlight Share / customer names (via Excel)
 
 ```{r}
@@ -444,9 +445,32 @@ saveWorkbook(wb, "TestFile.xlsx", overwrite = TRUE)
 
 
 
+## adding in symbols or emojis
+
 ```{r}
-emoji_list = c(emo::ji("poop"), emo::ji("cat"), emo::ji("dog"))
+
+df_long_symbol = df_long_sh_color |> 
+  mutate(item_symbol = ifelse(item == '1 Dozen Eggs', paste(emo::ji("chicken"), item), item))
+
+emoji_list = c(emo::ji("poop"), emo::ji("cat"), emo::ji("dog"), emo::ji("chicken"))
 emoji_list
 
-```
+write_df_symb = df_long_symbol |> 
+  select(item_symbol)
 
+# wb <- createWorkbook(title = 'TestFile')
+# addWorksheet(wb, "testing")
+highlight_style = getStyles(wb)[1:dim(write_df)[1]]  ##NEED TO SEE IF I CAN USE THIS TO TRANSFER THE STYLE FROM ABOVE INTO THIS WORKSHEET WITH THE NEW NAMES
+
+##ANOTHER OPTION IS TO CREATE FOUR COLUMNS AND APPLY THE STYLE TO ITEM AND THE ITEM_SYMBOL THEN REMOVE THE ITEM FIELD AFTER THE HIGHLIGHTING IS PROVIDED
+
+
+wb2 <- createWorkbook(title = 'TestFile2')
+addWorksheet(wb2, "testing2")
+writeData(wb2, "testing2", write_df_symb, colNames = FALSE)
+
+addStyle(wb2, "testing2", style = createStyle(highlight_style))
+
+openXL(wb2)
+
+```
