@@ -6,7 +6,8 @@ output: html_notebook
 ## Set directory and libraries
 
 ```{r}
-directory = 'E:/Documents/fair_shares_ds_projects/FS_P003_Customer_Order_List'
+directory = 'E:/Documents/fair_shares_ds_projects/FS_P003_Customer_Order_List' #desktop
+# directory = 'C:/Users/Robert/Documents/_ds_fairshares/FS_P003_Customer_Order_List' #laptop
 setwd(directory)
 
 library(tidyverse)
@@ -364,19 +365,51 @@ googledrive::drive_mv(ss, path = fldr, name = 'test')
 
 ```
 
+## adding in symbols or emojis
+
+```{r}
+
+df_long_symbol = df_long_del |> 
+  mutate(quantity = ifelse(is.na(quantity), '', as.character(quantity))
+           , item_symbol = ifelse(quantity == '', item, paste0(quantity,'x',item))
+           , item_symbol = ifelse(item == '1 Dozen Eggs', paste(emo::ji("chicken"), item_symbol), item_symbol)
+         )
+
+# emoji_list = c(emo::ji("poop"), emo::ji("cat"), emo::ji("dog"), emo::ji("chicken"))
+# emoji_list
+# 
+# write_df_symb = df_long_symbol |> 
+#   select(item_symbol)
+
+# wb <- createWorkbook(title = 'TestFile')
+# addWorksheet(wb, "testing")
+# highlight_style = getStyles(wb)[1:dim(write_df)[1]]  ##NEED TO SEE IF I CAN USE THIS TO TRANSFER THE STYLE FROM ABOVE INTO THIS WORKSHEET WITH THE NEW NAMES
+
+##ANOTHER OPTION IS TO CREATE FOUR COLUMNS AND APPLY THE STYLE TO ITEM AND THE ITEM_SYMBOL THEN REMOVE THE ITEM FIELD AFTER THE HIGHLIGHTING IS PROVIDED
+
+
+# wb2 <- createWorkbook(title = 'TestFile2')
+# addWorksheet(wb2, "testing2")
+# writeData(wb2, "testing2", write_df_symb, colNames = FALSE)
+# 
+# addStyle(wb2, "testing2", style = createStyle(highlight_style))
+# 
+# openXL(wb2)
+
+```
 
 ## Highlight Share / customer names (via Excel)
 
 ```{r}
 
-df_long_sh_color = df_long_del |> 
+df_long_sh_color = df_long_symbol |> 
   left_join(sh_shares
             , by = c('group_name')
             ) |> 
   mutate(highlight_color_hex = ifelse(rank <= 0, highlight_color_hex, NA))
 
 write_df = df_long_sh_color |> 
-  select(item)
+  select(item, item_symbol)
 
 wb <- createWorkbook(title = 'TestFile')
 addWorksheet(wb, "testing")
@@ -390,15 +423,15 @@ test_color = df_long_sh_color |>
   # summarise(ss_cells = toString(ss_cell)) |> 
   # ungroup()
 
-setColWidths(wb, "testing", cols = 1:2, widths = 44)
+setColWidths(wb, "testing", cols = 1:4, widths = 44)
 
 for (i in (test_color |> select(highlight_color_hex) |> distinct() |> pull())) {
   print(i)
   bhfill_style <- createStyle(bgFill = i, textDecoration = "bold") #having trouble with centering text in column width
 
   for (j in (test_color |> filter(highlight_color_hex == i) |> select(ss_cell) |> distinct() |> pull())) {
-    conditionalFormatting(wb, "testing", rule = "!=0", cols = 1, rows = j, style = bhfill_style)
-    addStyle(wb, "testing", cols = 1, rows = j, style = createStyle(halign = "center"))
+    conditionalFormatting(wb, "testing", rule = "!=0", cols = 1:2, rows = j, style = bhfill_style)
+    addStyle(wb, "testing", cols = 1:2, rows = j, style = createStyle(halign = "center"))
   }
 
 }
@@ -408,14 +441,14 @@ bold_style <- createStyle(textDecoration = "bold")
 conditionalFormatting(wb, "testing" 
                       , type = "contains"
                       , rule = "Pickup Time"
-                      , cols = 1
+                      , cols = 1:2
                       , rows = 1:dim(write_df)[1]
                       , style = bold_style)
 #equal to logic
 conditionalFormatting(wb, "testing"
                       , type = "expression"
-                      , rule = paste0('==\"','1 Dozen Eggs','\"')
-                      , cols = 1
+                      , rule = paste0('$A1==\"','1 Dozen Eggs','\"')
+                      , cols = 1:2
                       , rows = 1:dim(write_df)[1]
                       , style = createStyle(bgFill = '#ffff00')
                       )
@@ -423,7 +456,7 @@ conditionalFormatting(wb, "testing"
 conditionalFormatting(wb, "testing"
                       , type = "beginswith"
                       , rule = "64 Oz. Milk - Whole"
-                      , cols = 1
+                      , cols = 1:2
                       , rows = 1:dim(write_df)[1]
                       , style = createStyle(bgFill = '#00ffff')
                       )
@@ -432,7 +465,7 @@ conditionalFormatting(wb, "testing"
 conditionalFormatting(wb, "testing"
                       , type = "endswith"
                       , rule = "Green Curly"
-                      , cols = 1
+                      , cols = 1:2
                       , rows = 1:dim(write_df)[1]
                       , style = createStyle(bgFill = '#00ff00')
                       )
@@ -445,32 +478,3 @@ saveWorkbook(wb, "TestFile.xlsx", overwrite = TRUE)
 
 
 
-## adding in symbols or emojis
-
-```{r}
-
-df_long_symbol = df_long_sh_color |> 
-  mutate(item_symbol = ifelse(item == '1 Dozen Eggs', paste(emo::ji("chicken"), item), item))
-
-emoji_list = c(emo::ji("poop"), emo::ji("cat"), emo::ji("dog"), emo::ji("chicken"))
-emoji_list
-
-write_df_symb = df_long_symbol |> 
-  select(item_symbol)
-
-# wb <- createWorkbook(title = 'TestFile')
-# addWorksheet(wb, "testing")
-highlight_style = getStyles(wb)[1:dim(write_df)[1]]  ##NEED TO SEE IF I CAN USE THIS TO TRANSFER THE STYLE FROM ABOVE INTO THIS WORKSHEET WITH THE NEW NAMES
-
-##ANOTHER OPTION IS TO CREATE FOUR COLUMNS AND APPLY THE STYLE TO ITEM AND THE ITEM_SYMBOL THEN REMOVE THE ITEM FIELD AFTER THE HIGHLIGHTING IS PROVIDED
-
-
-wb2 <- createWorkbook(title = 'TestFile2')
-addWorksheet(wb2, "testing2")
-writeData(wb2, "testing2", write_df_symb, colNames = FALSE)
-
-addStyle(wb2, "testing2", style = createStyle(highlight_style))
-
-openXL(wb2)
-
-```
