@@ -294,6 +294,370 @@ df_long_del |> head(20)
 
 ```
 
+## Optimize orders to two columns
+
+```{r}
+opt_grouped = df_long_del %>% 
+  ungroup() |> 
+  group_by(group_name, description, time, lastname, firstname, id) |> 
+  summarise(n = n()) |>  
+  ungroup() |> 
+  arrange(group_name, description, time, lastname, firstname, desc(n))
+
+# Thought process is can we run this each time for each group_name then apply the max from the previous group to the page number found in overall calculation
+# That way we can take out the group_name from the overall calculation... 
+# or do we take out group name then assume one less row in row_max and calculate from there... still need to add logic to increase on group name swap
+# do we add the group_name in the overall page header???
+
+
+column1 = as.data.frame(NULL)
+column2 = as.data.frame(NULL)
+page = 1
+c1_rows = 0
+c2_rows = 0
+c1_cust = 0
+c2_cust = 0
+row_max = 44
+for (i in 1:dim(opt_grouped)[1]) {
+  if (dim(column1)[1] == 0 & dim(column2)[1] == 0 & i == 1) {
+    column1 = column1 %>% 
+      rbind(opt_grouped[i,] %>% 
+              mutate(page_n = page
+                     )
+            )
+    c1_rows = column1$n[dim(column1)[1]]
+    c1_cust = 1
+  } else {
+    if (floor((opt_grouped$n[i] + c1_rows)/row_max) > 0 & floor((opt_grouped$n[i] + c2_rows)/row_max) > 0) {
+      page = page+1
+      column1 = column1 %>% 
+        rbind(opt_grouped[i,] %>% 
+              mutate(page_n = page
+                     )
+            )
+      c1_rows = column1$n[dim(column1)[1]]
+      c2_rows = 0
+      c1_cust = 1
+      c2_cust = 0
+    } else if (floor((opt_grouped$n[i] + c1_rows)/row_max) > 0 & floor((opt_grouped$n[i] + c2_rows)/row_max) == 0) {
+      column2 = column2 %>% 
+        rbind(opt_grouped[i,] %>% 
+              mutate(page_n = page
+                     )
+            )
+      c2_rows = c2_rows + column2$n[dim(column2)[1]]
+      c2_cust = c2_cust + 1
+    } else if (c1_cust > c2_cust) {
+      column2 = column2 %>% 
+        rbind(opt_grouped[i,] %>% 
+              mutate(page_n = page
+                     )
+            )
+      c2_rows = c2_rows + column2$n[dim(column2)[1]]
+      c2_cust = c2_cust + 1
+    } else {
+      column1 = column1 %>% 
+        rbind(opt_grouped[i,] %>% 
+              mutate(page_n = page
+                     )
+            )
+      c1_rows = c1_rows + column1$n[dim(column1)[1]]
+      c1_cust = c1_cust + 1
+    }
+  }
+  # print(opt_grouped$n[i])
+}
+```
+
+## adding in symbols or emojis
+
+```{r}
+
+df_symbol_inputs = data.frame(match_name = c('equal', 'contains', 'contains')
+                             ,text_name = c('1 Dozen Eggs', 'MILK', 'Chocolate')
+                             ,freeform_text = c(NA, '[***]', NA)
+                             ,emoji_name = c(emo::ji('chicken'), emo::ji('cow'), emo::ji('chocolate'))
+                             )
+
+
+symbol_addition = function(item_n, match_n, text_n, ff_n, em_n) {
+  ifelse((!is.na(ff_n)) & (!is.na(em_n)),
+      ifelse(match_n == 'equal', ifelse(item_n == text_n, paste0(em_n, ff_n), NA),
+      ifelse(match_n == 'contains', ifelse(str_detect(item_n, text_n), paste0(em_n, ff_n), NA),
+      ifelse(match_n == 'starts with', ifelse(startsWith(item_n, text_n), paste0(em_n, ff_n), NA),
+      ifelse(match_n == 'ends with', ifelse(endsWith(item_n, text_n), paste0(em_n, ff_n), NA)
+             , NA))))
+  ,ifelse((!is.na(ff_n)), 
+      ifelse(match_n == 'equal', ifelse(item_n == text_n, paste0(ff_n), NA),
+      ifelse(match_n == 'contains', ifelse(str_detect(item_n, text_n), paste0(ff_n), NA),
+      ifelse(match_n == 'starts with', ifelse(startsWith(item_n, text_n), paste0(ff_n), NA),
+      ifelse(match_n == 'ends with', ifelse(endsWith(item_n, text_n), paste0(ff_n), NA)
+             , NA))))
+  ,ifelse((!is.na(em_n)) , 
+      ifelse(match_n == 'equal', ifelse(item_n == text_n, paste0(em_n), NA),
+      ifelse(match_n == 'contains', ifelse(str_detect(item_n, text_n), paste0(em_n), NA),
+      ifelse(match_n == 'starts with', ifelse(startsWith(item_n, text_n), paste0(em_n), NA),
+      ifelse(match_n == 'ends with', ifelse(endsWith(item_n, text_n), paste0(em_n), NA)
+             , NA))))   
+  , NA)))
+}
+
+# print(symbol_addition('1x64 Ounce 2% MILK', 'ends with', 'MILK', '[***]', 'cow'))
+# symbol_addition('[***]', 'cow')
+
+symbol_search = df_long_del |> 
+  select(item) |> 
+  distinct() |> 
+  full_join(df_symbol_inputs
+            , by = character()
+            ) |> 
+  mutate(symbol_text = symbol_addition(item, match_name, text_name, freeform_text, emoji_name)) |> 
+  filter(!is.na(symbol_text)) |> 
+  select(item, symbol_text) |> 
+  arrange(item, symbol_text) |> 
+  group_by(item) |> 
+  mutate(symbol_text = paste0(symbol_text, collapse = "")) |> 
+  ungroup() |> 
+  distinct()
+
+df_long_symbol = df_long_del |> 
+  left_join(symbol_search
+            , by = c('item')
+            ) |> 
+  mutate(quantity = ifelse(is.na(quantity), '', as.character(quantity))
+           , item_symbol = ifelse(quantity == '', item, paste0(quantity,'x',item))
+           , item_symbol = ifelse(is.na(symbol_text), item_symbol, paste0(symbol_text, item_symbol))
+         )
+
+# emoji_list = c(emo::ji("poop"), emo::ji("cat"), emo::ji("dog"), emo::ji("chicken"))
+# emoji_list
+# 
+# write_df_symb = df_long_symbol |> 
+#   select(item_symbol)
+
+# wb <- createWorkbook(title = 'TestFile')
+# addWorksheet(wb, "testing")
+# highlight_style = getStyles(wb)[1:dim(write_df)[1]]  ##NEED TO SEE IF I CAN USE THIS TO TRANSFER THE STYLE FROM ABOVE INTO THIS WORKSHEET WITH THE NEW NAMES
+
+##ANOTHER OPTION IS TO CREATE FOUR COLUMNS AND APPLY THE STYLE TO ITEM AND THE ITEM_SYMBOL THEN REMOVE THE ITEM FIELD AFTER THE HIGHLIGHTING IS PROVIDED
+
+
+# wb2 <- createWorkbook(title = 'TestFile2')
+# addWorksheet(wb2, "testing2")
+# writeData(wb2, "testing2", write_df_symb, colNames = FALSE)
+# 
+# addStyle(wb2, "testing2", style = createStyle(highlight_style))
+# 
+# openXL(wb2)
+
+```
+
+## Highlight Share / customer names (via Excel)
+
+```{r}
+
+df_long_sh_color = df_long_symbol |> 
+  left_join(sh_shares
+            , by = c('group_name')
+            ) |> 
+  mutate(highlight_color_hex = ifelse(rank <= 0, highlight_color_hex, NA))
+
+write_df = df_long_sh_color |> 
+  select(item_symbol)
+
+wb <- createWorkbook(title = 'TestFile')
+addWorksheet(wb, "testing")
+writeData(wb, "testing", write_df, colNames = FALSE)
+#deleteData(wb, "testing", cols = 1, rows = 1)
+
+test_color = df_long_sh_color |> 
+  mutate(ss_cell = row_number()) |> 
+  filter(!is.na(highlight_color_hex)) #|> 
+  # group_by(highlight_color_hex) |> 
+  # summarise(ss_cells = toString(ss_cell)) |> 
+  # ungroup()
+
+setColWidths(wb, "testing", cols = 1:4, widths = 44)
+
+for (i in (test_color |> select(highlight_color_hex) |> distinct() |> pull())) {
+  print(i)
+  bhfill_style <- createStyle(bgFill = i, textDecoration = "bold") #having trouble with centering text in column width
+
+  for (j in (test_color |> filter(highlight_color_hex == i) |> select(ss_cell) |> distinct() |> pull())) {
+    conditionalFormatting(wb, "testing", rule = "!=0", cols = 1:2, rows = j, style = bhfill_style)
+    addStyle(wb, "testing", cols = 1:2, rows = j, style = createStyle(halign = "center"))
+  }
+
+}
+
+bold_style <- createStyle(textDecoration = "bold")
+# #contains logic (base)
+# conditionalFormatting(wb, "testing" 
+#                       , type = "contains"
+#                       , rule = "Pickup Time"
+#                       , cols = 1:2
+#                       , rows = 1:dim(write_df)[1]
+#                       , style = bold_style)
+# #equal to logic (base)
+# conditionalFormatting(wb, "testing"
+#                       , type = "expression"
+#                       , rule = paste0('$A1==\"','1 Dozen Eggs','\"')
+#                       , cols = 1:2
+#                       , rows = 1:dim(write_df)[1]
+#                       , style = createStyle(bgFill = '#ffff00')
+#                       )
+# #starts with logic (base)
+# conditionalFormatting(wb, "testing"
+#                       , type = "beginswith"
+#                       , rule = "64 Oz. Milk - Whole"
+#                       , cols = 1:2
+#                       , rows = 1:dim(write_df)[1]
+#                       , style = createStyle(bgFill = '#00ffff')
+#                       )
+# #ends with logic (base)
+# conditionalFormatting(wb, "testing"
+#                       , type = "endswith"
+#                       , rule = "Green Curly"
+#                       , cols = 1:2
+#                       , rows = 1:dim(write_df)[1]
+#                       , style = createStyle(bgFill = '#00ff00')
+#                       )
+
+# #contains logic (addstyle)
+# addStyle(wb, "testing"
+#          , cols = 1
+#          , rows = which(str_detect(df_long_sh_color$item, pattern = "Pickup Time"))
+#          , style = bold_style
+#          )
+# #equal to logic (addstyle)
+# addStyle(wb, "testing"
+#          , cols = 1
+#          , rows = which(df_long_sh_color$item == "1 Dozen Eggs")
+#          , style = createStyle(fgFill = '#ffff00')
+#          )
+# #starts with logic (addstyle)
+# addStyle(wb, "testing"
+#          , cols = 1
+#          , rows = which(startsWith(df_long_sh_color$item, "64 Oz. Milk - Whole"))
+#          , style = createStyle(fgFill = '#00ffff')
+#          )
+# #ends with logic (addstyle)
+# addStyle(wb, "testing"
+#          , cols = 1
+#          , rows = which(endsWith(df_long_sh_color$item, "Green Curly"))
+#          , style = createStyle(fgFill = '#00ff00')
+#          )
+
+
+style_xlsx = function(wb_n, sheet, col_n, match, text, colorhex, text_dec_name) {
+  if (!is.na(colorhex) & !is.na(text_dec_name)) {  #HIGHLIGHT BACKGROUND AND DECORATE TEXT
+    if (match == 'equal') {
+      addStyle(wb_n, sheet
+           , cols = col_n
+           , rows = which(df_long_sh_color$item == text)
+           , style = createStyle(fgFill = colorhex
+                                 ,textDecoration = text_dec_name)
+           )
+    } else if (match == 'contains') {
+      addStyle(wb_n, sheet
+           , cols = col_n
+           , rows = which(str_detect(df_long_sh_color$item, pattern = text))
+           , style = createStyle(fgFill = colorhex
+                                 ,textDecoration = text_dec_name)
+           )
+    } else if (match == 'starts with') {
+      addStyle(wb_n, sheet
+           , cols = col_n
+           , rows = which(startsWith(df_long_sh_color$item, text))
+           , style = createStyle(fgFill = colorhex
+                                 ,textDecoration = text_dec_name)
+           )
+    } else if (match == 'ends with') {
+      addStyle(wb_n, sheet
+           , cols = col_n
+           , rows = which(endsWith(df_long_sh_color$item, text))
+           , style = createStyle(fgFill = colorhex
+                                 ,textDecoration = text_dec_name)
+           )
+    } else {
+      print('valid match type not determined')
+    }
+  } else if (!is.na(colorhex)) {    #HIGHLIGHT BACKGROUND ONLY
+    if (match == 'equal') {
+      addStyle(wb_n, sheet
+           , cols = col_n
+           , rows = which(df_long_sh_color$item == text)
+           , style = createStyle(fgFill = colorhex)
+           )
+    } else if (match == 'contains') {
+      addStyle(wb_n, sheet
+           , cols = col_n
+           , rows = which(str_detect(df_long_sh_color$item, pattern = text))
+           , style = createStyle(fgFill = colorhex)
+           )
+    } else if (match == 'starts with') {
+      addStyle(wb_n, sheet
+           , cols = col_n
+           , rows = which(startsWith(df_long_sh_color$item, text))
+           , style = createStyle(fgFill = colorhex)
+           )
+    } else if (match == 'ends with') {
+      addStyle(wb_n, sheet
+           , cols = col_n
+           , rows = which(endsWith(df_long_sh_color$item, text))
+           , style = createStyle(fgFill = colorhex)
+           )
+    } else {
+      print('valid match type not determined')
+    }
+  } else if (!is.na(text_dec_name)) {   #DECORATE TEXT ONLY
+    if (match == 'equal') {
+      addStyle(wb_n, sheet
+           , cols = col_n
+           , rows = which(df_long_sh_color$item == text)
+           , style = createStyle(textDecoration = text_dec_name)
+           )
+    } else if (match == 'contains') {
+      addStyle(wb_n, sheet
+           , cols = col_n
+           , rows = which(str_detect(df_long_sh_color$item, pattern = text))
+           , style = createStyle(textDecoration = text_dec_name)
+           )
+    } else if (match == 'starts with') {
+      addStyle(wb_n, sheet
+           , cols = col_n
+           , rows = which(startsWith(df_long_sh_color$item, text))
+           , style = createStyle(textDecoration = text_dec_name)
+           )
+    } else if (match == 'ends with') {
+      addStyle(wb_n, sheet
+           , cols = col_n
+           , rows = which(endsWith(df_long_sh_color$item, text))
+           , style = createStyle(textDecoration = text_dec_name)
+           )
+    } else {
+      print('valid match type not determined')
+    }
+  } else {
+    print('Need to selet a color or text format type')
+  }
+  
+}
+
+style_xlsx(wb, "testing", 1, 'equal', "1 Dozen Eggs", '#ffff00', NA)
+style_xlsx(wb, "testing", 1, 'starts with', "64 Oz. Milk - Whole", '#00ffff', NA)
+style_xlsx(wb, "testing", 1, 'ends with', "Green Curly", '#00ff00', NA)
+
+# style_xlsx(wb, "testing", 1, 'contains', "Pickup Time", '#efefef', 'bold')
+style_xlsx(wb, "testing", 1, 'contains', "Pickup Time", NA, 'bold')
+
+rob
+openXL(wb)
+
+saveWorkbook(wb, "TestFile.xlsx", overwrite = TRUE)
+```
+
+
 ## Highlight Share / customer names (via Google Sheets)
 
 ```{r eval=FALSE}
@@ -364,117 +728,4 @@ fldr = googledrive::drive_find(type = "folder", pattern = "customer_order_list_d
 googledrive::drive_mv(ss, path = fldr, name = 'test')
 
 ```
-
-## adding in symbols or emojis
-
-```{r}
-
-df_long_symbol = df_long_del |> 
-  mutate(quantity = ifelse(is.na(quantity), '', as.character(quantity))
-           , item_symbol = ifelse(quantity == '', item, paste0(quantity,'x',item))
-           , item_symbol = ifelse(item == '1 Dozen Eggs', paste(emo::ji("chicken"), item_symbol), item_symbol)
-         )
-
-# emoji_list = c(emo::ji("poop"), emo::ji("cat"), emo::ji("dog"), emo::ji("chicken"))
-# emoji_list
-# 
-# write_df_symb = df_long_symbol |> 
-#   select(item_symbol)
-
-# wb <- createWorkbook(title = 'TestFile')
-# addWorksheet(wb, "testing")
-# highlight_style = getStyles(wb)[1:dim(write_df)[1]]  ##NEED TO SEE IF I CAN USE THIS TO TRANSFER THE STYLE FROM ABOVE INTO THIS WORKSHEET WITH THE NEW NAMES
-
-##ANOTHER OPTION IS TO CREATE FOUR COLUMNS AND APPLY THE STYLE TO ITEM AND THE ITEM_SYMBOL THEN REMOVE THE ITEM FIELD AFTER THE HIGHLIGHTING IS PROVIDED
-
-
-# wb2 <- createWorkbook(title = 'TestFile2')
-# addWorksheet(wb2, "testing2")
-# writeData(wb2, "testing2", write_df_symb, colNames = FALSE)
-# 
-# addStyle(wb2, "testing2", style = createStyle(highlight_style))
-# 
-# openXL(wb2)
-
-```
-
-## Highlight Share / customer names (via Excel)
-
-```{r}
-
-df_long_sh_color = df_long_symbol |> 
-  left_join(sh_shares
-            , by = c('group_name')
-            ) |> 
-  mutate(highlight_color_hex = ifelse(rank <= 0, highlight_color_hex, NA))
-
-write_df = df_long_sh_color |> 
-  select(item, item_symbol)
-
-wb <- createWorkbook(title = 'TestFile')
-addWorksheet(wb, "testing")
-writeData(wb, "testing", write_df, colNames = FALSE)
-#deleteData(wb, "testing", cols = 1, rows = 1)
-
-test_color = df_long_sh_color |> 
-  mutate(ss_cell = row_number()) |> 
-  filter(!is.na(highlight_color_hex)) #|> 
-  # group_by(highlight_color_hex) |> 
-  # summarise(ss_cells = toString(ss_cell)) |> 
-  # ungroup()
-
-setColWidths(wb, "testing", cols = 1:4, widths = 44)
-
-for (i in (test_color |> select(highlight_color_hex) |> distinct() |> pull())) {
-  print(i)
-  bhfill_style <- createStyle(bgFill = i, textDecoration = "bold") #having trouble with centering text in column width
-
-  for (j in (test_color |> filter(highlight_color_hex == i) |> select(ss_cell) |> distinct() |> pull())) {
-    conditionalFormatting(wb, "testing", rule = "!=0", cols = 1:2, rows = j, style = bhfill_style)
-    addStyle(wb, "testing", cols = 1:2, rows = j, style = createStyle(halign = "center"))
-  }
-
-}
-
-bold_style <- createStyle(textDecoration = "bold")
-#contains logic
-conditionalFormatting(wb, "testing" 
-                      , type = "contains"
-                      , rule = "Pickup Time"
-                      , cols = 1:2
-                      , rows = 1:dim(write_df)[1]
-                      , style = bold_style)
-#equal to logic
-conditionalFormatting(wb, "testing"
-                      , type = "expression"
-                      , rule = paste0('$A1==\"','1 Dozen Eggs','\"')
-                      , cols = 1:2
-                      , rows = 1:dim(write_df)[1]
-                      , style = createStyle(bgFill = '#ffff00')
-                      )
-#starts with logic
-conditionalFormatting(wb, "testing"
-                      , type = "beginswith"
-                      , rule = "64 Oz. Milk - Whole"
-                      , cols = 1:2
-                      , rows = 1:dim(write_df)[1]
-                      , style = createStyle(bgFill = '#00ffff')
-                      )
-
-#ends with logic
-conditionalFormatting(wb, "testing"
-                      , type = "endswith"
-                      , rule = "Green Curly"
-                      , cols = 1:2
-                      , rows = 1:dim(write_df)[1]
-                      , style = createStyle(bgFill = '#00ff00')
-                      )
-
-
-openXL(wb)
-
-saveWorkbook(wb, "TestFile.xlsx", overwrite = TRUE)
-```
-
-
 
