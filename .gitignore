@@ -9,3 +9,6 @@ farmigo_downloads/
 
 # dcf file of shinyapps
 *.dcf
+
+# shinyapps.io
+shinyapps.io/
