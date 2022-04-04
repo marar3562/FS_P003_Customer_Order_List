@@ -11,4 +11,4 @@ farmigo_downloads/
 *.dcf
 
 # shinyapps.io
-shinyapps.io/
+rsconnect/
