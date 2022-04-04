@@ -6,3 +6,6 @@
 
 # download files
 farmigo_downloads/
+
+# dcf file of shinyapps
+*.dcf
