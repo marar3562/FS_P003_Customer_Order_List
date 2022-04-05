@@ -1,5 +1,5 @@
 ---
-title: "Full Process Calculations"
+title: "R Notebook"
 output: html_notebook
 ---
 
@@ -57,7 +57,9 @@ df_orig_long = df_orig  |>
   mutate(order = strsplit(as.character(order), ",")) |>
   unnest(order) |> 
   mutate(pickuptime = ifelse(str_detect(order, "Pickup Time"), 2, NA),
-         order = trimws(order)) |> 
+         order = trimws(order),
+         item_original = order
+         ) |> 
   separate(order, into = c('quantity','item'), sep = 'x', extra = "merge") |> 
   mutate(item = ifelse(is.na(item) & !is.na(quantity), quantity, item)
          ,quantity = ifelse(item == quantity, NA, quantity)
@@ -75,6 +77,7 @@ df_orig_long = df_orig  |>
                  ,quantity = NA
                  ,item = group_name
                  ,id = 0
+                 ,item_original = group_name
                  ,rank = -1
                  ,name_long = paste0(lastname,', ',firstname,' [',id,']')
                   )
@@ -85,9 +88,10 @@ df_orig_long = df_orig  |>
           mutate(quantity = NA
                  ,item = paste0(lastname,', ',firstname)
                  ,rank = 0
+                 ,item_original = item
                  ,name_long = paste0(lastname,', ',firstname,' [',id,']')
                   ) |> 
-          select(group_name, firstname, lastname, quantity, item, id, rank, name_long)
+          select(group_name, firstname, lastname, quantity, item, id, item_original, rank, name_long)
         ) |> 
     rbind(df_orig |> #bringing in a new spacer row for each member name
           select(group_name, firstname, lastname, id) |> 
@@ -95,9 +99,10 @@ df_orig_long = df_orig  |>
           mutate(quantity = NA
                  ,item = NA
                  ,rank = 4
+                 ,item_original = NA
                  ,name_long = paste0(lastname,', ',firstname,' [',id,']')
                   ) |> 
-          select(group_name, firstname, lastname, quantity, item, id, rank, name_long)
+          select(group_name, firstname, lastname, quantity, item, id, item_original, rank, name_long)
         ) |> 
   arrange(group_name, lastname, firstname, id, rank) 
 
@@ -199,14 +204,14 @@ df_defaults = data.frame(group_name = shares
 
 
   
-default_customers = df_long_tm |> 
-  inner_join(df_long_tm |> 
+default_customers_all = df_long_tm |> 
+  left_join(df_long_tm |> 
               inner_join(df_defaults |> 
                            filter(!is.na(name_long))
                          , by = c('group_name', 'name_long')
                          ) |> 
-              filter(rank >= 3) |> 
-              select(id, group_name, item) |> 
+              filter(rank == 3) |> 
+              select(id, group_name, item_original) |> 
               distinct() |> 
               group_by(id) |> 
               mutate(rank_v = rank(row_number()),
@@ -214,17 +219,22 @@ default_customers = df_long_tm |>
                      ) |>
               ungroup() |> 
               select(-id, -rank_v)
-            , by = c('group_name', 'item')
+            , by = c('group_name', 'item_original')
             ) |> 
-  filter(rank >= 3) |> 
-  select(id, name_long, group_name, item, default_rows) |> 
+  filter(rank == 3) |> 
+  select(id, name_long, group_name, item_original, default_rows) |> 
   distinct() |> 
   group_by(id) |> 
-  mutate(rank_v = rank(row_number()),
-         customer_rows = max(rank_v)
+  mutate(rank_v = sum(ifelse(!is.na(default_rows), 1, 0)),
+         customer_rows = max(rank_v),
+         rank_n_full = ifelse(!is.na(default_rows), rank(row_number()), 0),
+         customer_n_full_rows = max(rank_n_full),
+         n_full_rows = sum(ifelse(rank_n_full == 0, 1, 0))
          ) |>
-  ungroup() |> 
-  filter(default_rows == customer_rows) |> 
+  ungroup() 
+
+default_customers_full_match = default_customers_all |> 
+  filter(default_rows == customer_rows & n_full_rows == 0) |> 
   left_join(df_defaults |> 
               filter(!is.na(name_long))
             , by = c('group_name', 'name_long')
@@ -232,28 +242,63 @@ default_customers = df_long_tm |>
   mutate(keep_remove = ifelse(is.na(keep_remove), TRUE, keep_remove)) |> 
   select(id, keep_remove) |> 
   distinct() 
+
+default_customers_match_w_extras = default_customers_all |> 
+  filter(default_rows == (customer_n_full_rows - n_full_rows) & n_full_rows > 0) |> 
+  select(id) |> 
+  distinct() |> 
+  left_join(default_customers_all |> 
+              filter(is.na(default_rows)) |> 
+              select(id, item_original)
+              , by = c('id')
+  ) |> 
+  mutate(keep_remove =  TRUE) |> 
+  select(id, item_original, keep_remove) |> 
+  distinct() 
   
 
-df_long_def = df_long_tm |> 
-  filter(id %in% (default_customers |> filter(keep_remove == TRUE))$id) |> 
+df_long_def = df_long_tm |> #bring in default trading member names
+  filter(id %in% (default_customers_full_match |> filter(keep_remove == TRUE))$id
+         | id %in% (default_customers_match_w_extras |> filter(keep_remove == TRUE))$id
+           ) |> 
   filter(rank <= 2) |> 
-  rbind(df_long_tm |> 
-          filter(id %in% (default_customers |> filter(keep_remove == TRUE))$id) |> 
+  select(-item_original) |> 
+  rbind(df_long_tm |>  #bring in Default trading item row
+          filter(id %in% (default_customers_full_match |> filter(keep_remove == TRUE))$id
+                 | id %in% (default_customers_match_w_extras |> filter(keep_remove == TRUE))$id
+            ) |> 
           filter(rank >= 3) |> 
           mutate(quantity = NA,
-                 item = 'DEFAULT TRADEABLE ITEMS') |> 
+                 item = ifelse(rank == 3, 'DEFAULT TRADEABLE ITEMS', item)
+                 ) |> 
+          select(-item_original) |> 
           distinct()
   ) |> 
-  rbind(df_long_tm |> 
-          filter(!id %in% default_customers$id)
+  rbind(df_long_tm |>  #bring in all members not in default member list
+          select(-item_original) |> 
+          filter(!id %in% (default_customers_full_match |> filter(keep_remove == TRUE))$id
+                 & !id %in% (default_customers_match_w_extras |> filter(keep_remove == TRUE))$id
+                 )
+  ) |> 
+  rbind(df_long_tm |>  #bring in items that have a default item match but have extra sales
+          inner_join(default_customers_match_w_extras |> 
+                       select(-keep_remove)
+                    , by = c('id','item_original')
+                     ) |> 
+          select(-item_original) 
   ) |> 
   arrange(group_name, description, time, lastname, firstname, id, rank)
   
 df_long_def |> 
-  inner_join(default_customers
+  inner_join(default_customers_match_w_extras |> 
+             select(-item_original) |> 
+             mutate(extras = TRUE) |> 
+             distinct() |> 
+             rbind(default_customers_full_match |> 
+                     mutate(extras = FALSE))
              , by = c('id')
              ) |> 
-  select(group_name, lastname, firstname, id, keep_in_output = keep_remove) |> 
+  select(group_name, lastname, firstname, id, keep_in_output = keep_remove, extras) |> 
   distinct()
 
 ```
@@ -304,6 +349,7 @@ df_long_del |> head(20)
 
 ```
 
+
 ## Optimize orders to two columns
 
 ```{r}
@@ -319,12 +365,6 @@ group_names = df_long_del |>
   ungroup() |> 
   select(group_name) |> 
   distinct()
-
-# Thought process is can we run this each time for each group_name then apply the max from the previous group to the page number found in overall calculation
-# That way we can take out the group_name from the overall calculation... 
-# or do we take out group name then assume one less row in row_max and calculate from there... still need to add logic to increase on group name swap
-# do we add the group_name in the overall page header???
-
 
 column1 = as.data.frame(NULL)
 column2 = as.data.frame(NULL)
@@ -468,13 +508,35 @@ column2_print = print_full |>
 ## adding in symbols or emojis
 
 ```{r}
+# test = data.frame(emoji::emoji_name)
+# test = test |> rownames_to_column()
 
-df_symbol_inputs = data.frame(match_name = c('equal', 'contains', 'contains')
-                             ,text_name = c('1 Dozen Eggs', 'MILK', 'Chocolate')
-                             ,freeform_text = c(NA, '[***]', NA)
-                             ,emoji_name = c(emo::ji('chicken'), emo::ji('cow'), emo::ji('chocolate'))
+# df_symbol_inputs = data.frame(match_name = c('equal', 'contains', 'contains')
+#                              ,text_name = c('1 Dozen Eggs', 'MILK', 'Chocolate')
+#                              ,freeform_text = c(NA, '[***]', NA)
+#                              ,emoji_name = c(emo::ji('chicken'), emo::ji('cow'), emo::ji('chocolate'))
+#                              )
+
+df_symbol_inputs_milk = data.frame(match_name = c('contains', 'contains', 'contains', 'contains', 'contains', 'contains', 'contains', 'contains', 'contains', 'contains', 'contains')
+                             ,text_name = c('Milk - 2%','Milk - Chocolate','Milk - Creamline','Milk - Skim','Milk - Whole', '2% MILK', 'Chocolate MILK', 'Creamline MILK', 'Skim MILK', 'Whole MILK', 'Whole Milk - o')
+                             ,freeform_text = c('[*]', '[*]', '[*]', '[*]', '[*]','[*]', '[*]', '[*]', '[*]', '[*]', '[*]')
+                             ,emoji_name = c(emo::ji('milk_glass'), emo::ji('milk_glass'), emo::ji('milk_glass'), emo::ji('milk_glass'), emo::ji('milk_glass'), emo::ji('milk_glass'), emo::ji('milk_glass'), emo::ji('milk_glass'), emo::ji('milk_glass'), emo::ji('milk_glass'), emo::ji('milk_glass'))
                              )
 
+df_symbol_inputs_pizza = data.frame(match_name = c('contains', 'contains', 'contains', 'contains', 'contains', 'contains', 'contains', 'contains')
+                             ,text_name = c('Pizza - Cheese','Pizza - Deluxe','Pizza - Four Meat','Pizza - Hot Chicken','Pizza - Pepperoni','Pizza - Sausage Pepperoni','Pizza - Tomato Basil Garlic','Pizza - Veggie')
+                             ,freeform_text = c('[**]', '[**]', '[**]', '[**]', '[**]', '[**]', '[**]', '[**]')
+                             ,emoji_name = c(emo::ji('pizza'), emo::ji('pizza'), emo::ji('pizza'), emo::ji('pizza'), emo::ji('pizza'), emo::ji('pizza'), emo::ji('pizza'), emo::ji('pizza'))
+                             )
+
+df_symbol_inputs_other = data.frame(match_name = c('contains', 'contains', 'contains','contains','contains')
+                             ,text_name = c('FF Dish - Creole Shrimp & Okra','Pork - Andouille links','Raw Milk Aged Cheddar','Pickup Time','Schlafly Beer')
+                             ,freeform_text = c('[**]', '[andouille]', '[1]',NA, NA)
+                             ,emoji_name = c(emo::ji('fried_shrimp'), NA, emo::ji('cheese'), emo::ji('clock3'), emo::ji('beer'))
+                             )
+df_symbol_inputs = df_symbol_inputs_milk |> 
+  rbind(df_symbol_inputs_pizza) |> 
+  rbind(df_symbol_inputs_other)
 
 symbol_addition = function(item_n, match_n, text_n, ff_n, em_n) {
   ifelse((!is.na(ff_n)) & (!is.na(em_n)),
@@ -497,9 +559,6 @@ symbol_addition = function(item_n, match_n, text_n, ff_n, em_n) {
              , NA))))   
   , NA)))
 }
-
-# print(symbol_addition('1x64 Ounce 2% MILK', 'ends with', 'MILK', '[***]', 'cow'))
-# symbol_addition('[***]', 'cow')
 
 symbol_search_c1 = column1_print |> 
   select(item) |> 
@@ -549,27 +608,6 @@ df_long_symbol_c2 = column2_print |>
            , item_symbol = ifelse(is.na(symbol_text), item_symbol, paste0(symbol_text, item_symbol))
          )
 
-# emoji_list = c(emo::ji("poop"), emo::ji("cat"), emo::ji("dog"), emo::ji("chicken"))
-# emoji_list
-# 
-# write_df_symb = df_long_symbol |> 
-#   select(item_symbol)
-
-# wb <- createWorkbook(title = 'TestFile')
-# addWorksheet(wb, "testing")
-# highlight_style = getStyles(wb)[1:dim(write_df)[1]]  ##NEED TO SEE IF I CAN USE THIS TO TRANSFER THE STYLE FROM ABOVE INTO THIS WORKSHEET WITH THE NEW NAMES
-
-##ANOTHER OPTION IS TO CREATE FOUR COLUMNS AND APPLY THE STYLE TO ITEM AND THE ITEM_SYMBOL THEN REMOVE THE ITEM FIELD AFTER THE HIGHLIGHTING IS PROVIDED
-
-
-# wb2 <- createWorkbook(title = 'TestFile2')
-# addWorksheet(wb2, "testing2")
-# writeData(wb2, "testing2", write_df_symb, colNames = FALSE)
-# 
-# addStyle(wb2, "testing2", style = createStyle(highlight_style))
-# 
-# openXL(wb2)
-
 ```
 
 ## Highlight Share / customer names (via Excel)
@@ -588,18 +626,6 @@ df_long_sh_color_c2 = df_long_symbol_c2 |>
             ) |> 
   mutate(highlight_color_hex = ifelse(rank <= 0, highlight_color_hex, NA))
 
-# if (nrow(df_long_sh_color_c1) > nrow(df_long_sh_color_c2)) {
-#   for (i in 1:(nrow(df_long_sh_color_c1) - nrow(df_long_sh_color_c2))) {
-#     df_long_sh_color_c2[nrow(df_long_sh_color_c2)+1,] = NA
-#   }
-# } else if (nrow(df_long_sh_color_c2) > nrow(df_long_sh_color_c1)) {
-#   for (i in 1:(nrow(df_long_sh_color_c2) - nrow(df_long_sh_color_c1))) {
-#     df_long_sh_color_c1[nrow(df_long_sh_color_c1)+1,] = NA
-#     print(nrow(df_long_sh_color_c1))
-#     print(i)
-#   }
-# } 
-
 write_df = df_long_sh_color_c1 |>
   select(item_1 = item_symbol) |>
   cbind(
@@ -610,21 +636,17 @@ write_df = df_long_sh_color_c1 |>
 wb <- createWorkbook(title = 'TestFile')
 addWorksheet(wb, "testing")
 writeData(wb, "testing", write_df, colNames = FALSE)
-#deleteData(wb, "testing", cols = 1, rows = 1)
 
 setColWidths(wb, "testing", cols = 1:2, widths = 40)
 modifyBaseFont(wb, fontSize = 12, fontColour = "black", fontName = "Calibri")
 
 test_color_c1 = df_long_sh_color_c1 |> 
   mutate(ss_cell = row_number()) |> 
-  filter(!is.na(highlight_color_hex)) #|> 
-  # group_by(highlight_color_hex) |> 
-  # summarise(ss_cells = toString(ss_cell)) |> 
-  # ungroup()
+  filter(!is.na(highlight_color_hex)) 
 
 for (i in (test_color_c1 |> select(highlight_color_hex) |> distinct() |> pull())) {
   print(i)
-  bhfill_style <- createStyle(bgFill = i, textDecoration = "bold") #having trouble with centering text in column width
+  bhfill_style <- createStyle(bgFill = i, textDecoration = "bold") 
 
   for (j in (test_color_c1 |> filter(highlight_color_hex == i) |> select(ss_cell) |> distinct() |> pull())) {
     conditionalFormatting(wb, "testing", rule = "!=0", cols = 1, rows = j, style = bhfill_style)
@@ -635,14 +657,11 @@ for (i in (test_color_c1 |> select(highlight_color_hex) |> distinct() |> pull())
 
 test_color_c2 = df_long_sh_color_c2 |> 
   mutate(ss_cell = row_number()) |> 
-  filter(!is.na(highlight_color_hex)) #|> 
-  # group_by(highlight_color_hex) |> 
-  # summarise(ss_cells = toString(ss_cell)) |> 
-  # ungroup()
+  filter(!is.na(highlight_color_hex)) 
 
 for (i in (test_color_c2 |> select(highlight_color_hex) |> distinct() |> pull())) {
   print(i)
-  bhfill_style <- createStyle(bgFill = i, textDecoration = "bold") #having trouble with centering text in column width
+  bhfill_style <- createStyle(bgFill = i, textDecoration = "bold") 
 
   for (j in (test_color_c2 |> filter(highlight_color_hex == i) |> select(ss_cell) |> distinct() |> pull())) {
     conditionalFormatting(wb, "testing", rule = "!=0", cols = 2, rows = j, style = bhfill_style)
@@ -650,65 +669,6 @@ for (i in (test_color_c2 |> select(highlight_color_hex) |> distinct() |> pull())
   }
 
 }
-
-# bold_style <- createStyle(textDecoration = "bold")
-# #contains logic (base)
-# conditionalFormatting(wb, "testing" 
-#                       , type = "contains"
-#                       , rule = "Pickup Time"
-#                       , cols = 1:2
-#                       , rows = 1:dim(write_df)[1]
-#                       , style = bold_style)
-# #equal to logic (base)
-# conditionalFormatting(wb, "testing"
-#                       , type = "expression"
-#                       , rule = paste0('$A1==\"','1 Dozen Eggs','\"')
-#                       , cols = 1:2
-#                       , rows = 1:dim(write_df)[1]
-#                       , style = createStyle(bgFill = '#ffff00')
-#                       )
-# #starts with logic (base)
-# conditionalFormatting(wb, "testing"
-#                       , type = "beginswith"
-#                       , rule = "64 Oz. Milk - Whole"
-#                       , cols = 1:2
-#                       , rows = 1:dim(write_df)[1]
-#                       , style = createStyle(bgFill = '#00ffff')
-#                       )
-# #ends with logic (base)
-# conditionalFormatting(wb, "testing"
-#                       , type = "endswith"
-#                       , rule = "Green Curly"
-#                       , cols = 1:2
-#                       , rows = 1:dim(write_df)[1]
-#                       , style = createStyle(bgFill = '#00ff00')
-#                       )
-
-# #contains logic (addstyle)
-# addStyle(wb, "testing"
-#          , cols = 1
-#          , rows = which(str_detect(df_long_sh_color$item, pattern = "Pickup Time"))
-#          , style = bold_style
-#          )
-# #equal to logic (addstyle)
-# addStyle(wb, "testing"
-#          , cols = 1
-#          , rows = which(df_long_sh_color$item == "1 Dozen Eggs")
-#          , style = createStyle(fgFill = '#ffff00')
-#          )
-# #starts with logic (addstyle)
-# addStyle(wb, "testing"
-#          , cols = 1
-#          , rows = which(startsWith(df_long_sh_color$item, "64 Oz. Milk - Whole"))
-#          , style = createStyle(fgFill = '#00ffff')
-#          )
-# #ends with logic (addstyle)
-# addStyle(wb, "testing"
-#          , cols = 1
-#          , rows = which(endsWith(df_long_sh_color$item, "Green Curly"))
-#          , style = createStyle(fgFill = '#00ff00')
-#          )
-
 
 style_xlsx = function(wb_n, sheet, col_n, match, text, colorhex, text_dec_name) {
   if (!is.na(colorhex) & !is.na(text_dec_name)) {  #HIGHLIGHT BACKGROUND AND DECORATE TEXT
@@ -805,95 +765,28 @@ style_xlsx = function(wb_n, sheet, col_n, match, text, colorhex, text_dec_name) 
   
 }
 df_long_sh_color = df_long_sh_color_c1
-style_xlsx(wb, "testing", 1, 'equal', "1 Dozen Eggs", '#ffff00', NA)
-style_xlsx(wb, "testing", 1, 'starts with', "64 Oz. Milk - Whole", '#00ffff', NA)
-style_xlsx(wb, "testing", 1, 'ends with', "Green Curly", '#00ff00', NA)
+# style_xlsx(wb, "testing", 1, 'equal', "1 Dozen Eggs", '#ffff00', NA)
+# style_xlsx(wb, "testing", 1, 'starts with', "64 Oz. Milk - Whole", '#00ffff', NA)
+# style_xlsx(wb, "testing", 1, 'ends with', "Green Curly", '#00ff00', NA)
 
 # style_xlsx(wb, "testing", 1, 'contains', "Pickup Time", '#efefef', 'bold')
-style_xlsx(wb, "testing", 1, 'contains', "Pickup Time", NA, 'bold')
+# style_xlsx(wb, "testing", 1, 'contains', "Pickup Time", NA, 'bold')
+style_xlsx(wb, "testing", 1, 'equal', "DEFAULT TRADEABLE ITEMS", NA, 'bold')
+style_xlsx(wb, "testing", 1, 'contains', "Pickup Time", NA, 'italic')
 
 df_long_sh_color = df_long_sh_color_c2
-style_xlsx(wb, "testing", 2, 'equal', "1 Dozen Eggs", '#ffff00', NA)
-style_xlsx(wb, "testing", 2, 'starts with', "64 Oz. Milk - Whole", '#00ffff', NA)
-style_xlsx(wb, "testing", 2, 'ends with', "Green Curly", '#00ff00', NA)
+# style_xlsx(wb, "testing", 2, 'equal', "1 Dozen Eggs", '#ffff00', NA)
+# style_xlsx(wb, "testing", 2, 'starts with', "64 Oz. Milk - Whole", '#00ffff', NA)
+# style_xlsx(wb, "testing", 2, 'ends with', "Green Curly", '#00ff00', NA)
 
 # style_xlsx(wb, "testing", 2, 'contains', "Pickup Time", '#efefef', 'bold')
-style_xlsx(wb, "testing", 2, 'contains', "Pickup Time", NA, 'bold')
+# style_xlsx(wb, "testing", 2, 'contains', "Pickup Time", NA, 'bold')
+
+style_xlsx(wb, "testing", 2, 'equal', "DEFAULT TRADEABLE ITEMS", NA, 'bold')
+style_xlsx(wb, "testing", 2, 'contains', "Pickup Time", NA, 'italic')
 
 openXL(wb)
 
 saveWorkbook(wb, "TestFile.xlsx", overwrite = TRUE)
-```
-
-
-## Highlight Share / customer names (via Google Sheets)
-
-```{r eval=FALSE}
-df_long_sh_color = df_long_del |> 
-  left_join(sh_shares
-            , by = c('group_name')
-            ) |> 
-  mutate(highlight_color_rgb = ifelse(rank <= 0, highlight_color_rgb, NA))
-
-write_df = df_long_sh_color |> 
-  select(item)
-
-ss = gs4_create(name = 'test', sheets = write_df )
-
-range_delete(ss, range = "1") # remove column header
-
-test_color = df_long_sh_color |> 
-  mutate(ss_cell = paste0('A',row_number())) |> 
-  filter(!is.na(highlight_color_rgb)) #|> 
-  # group_by(highlight_color_rgb) |> 
-  # summarise(ss_cells = toString(ss_cell)) |> 
-  # ungroup()
-
-for (i in (test_color |> select(highlight_color_rgb) |> distinct() |> pull())) {
-  print(i)
-  c = data.frame(c = str_replace_all(
-                      str_replace_all(
-                        str_replace_all(
-                          str_replace_all(
-                            i
-                          ,'rgb','')
-                        ,'\\(','')
-                      ,'\\)','')
-                    ,' ',''))
-
-  c = c |> 
-    separate(c, into = c('r','g','b')) |> 
-    mutate(r = as.integer(r)
-           ,g = as.integer(g)
-           ,b = as.integer(b)
-           )
-  
-  color_background <- googlesheets4:::CellData(
-    userEnteredFormat = googlesheets4:::new(
-      "CellFormat",
-      backgroundColor = googlesheets4:::new(
-        "Color",
-        red = c$r[1] / 255, green = c$g[1] / 255, blue = c$b[1] / 255
-      )
-      # ,textFormat = googlesheets4:::new(
-      #   "Bold"
-      #   , TRUE
-      # )
-    )
-  )
-  for (j in (test_color |> filter(highlight_color_rgb == i) |> select(ss_cell) |> distinct() |> pull())) {
-    range_flood(ss, range = j, cell = color_background)
-  }
-
-}
-
-library(googledrive)
-
-drive_auth(email = '')
-
-fldr = googledrive::drive_find(type = "folder", pattern = "customer_order_list_drop_location_test")
-
-googledrive::drive_mv(ss, path = fldr, name = 'test')
-
 ```
 
