@@ -108,6 +108,7 @@ df_orig_long
 ## Pickup Times found
 
 ```{r}
+#old logic. need to bring in new logic accounting for multiple pickup times being selected.
 pickup_time = df_orig_long |> 
   filter(rank == 2) |> 
   group_by(Time = item) |> 
@@ -145,6 +146,8 @@ df_long_tm
 ## Default Orders
 
 ```{r}
+
+##old logic. need to bring in 5 group logic
 fs_w_default = NA
 fs_t_default = NA
 fsa_default = 'Foster, Bill [9]'
