@@ -4,8 +4,8 @@
 # R notebook html files
 *.nb.html
 
-# download files
-farmigo_downloads/
+# download files (will delete out later)
+# farmigo_downloads/
 
 # dcf file of shinyapps
 *.dcf
