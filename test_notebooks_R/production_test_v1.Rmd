@@ -21,7 +21,7 @@ library(emo)
 ## load data file
 
 ```{r}
-file_name = 'Member Pick-up Details-04_06_2022.csv'
+file_name = 'Member Pick-up Details-04_07_2022.csv'
 # file_name = 'Member Pick-up Details-06_09_2021.csv'
 df_orig = read.csv(paste0(directory,'/farmigo_downloads/',file_name)) |> 
   rename_all(tolower) |> 
@@ -48,7 +48,42 @@ sh_delete = range_read('1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ'
                 ,sheet = 'delete'
                 ,col_types = 'c'
 )
+
+# sh_plants = range_read('1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ'
+#                 ,sheet = 'pot_plants'
+#                 ,col_types = 'c'
+# )
 ```
+
+## Group Check
+
+Making sure that the Group Names in the CSV file match the Group Names we have in Google Sheets. If not then we need to update the Google Sheet document with the new Group Name. Otherwise keep running code. 
+
+```{r}
+group_check = df_orig |> 
+  select(group_name) |> 
+  distinct() |> 
+  mutate(check = ifelse(group_name %in% (sh_shares)$group_name, TRUE, FALSE)) |> 
+  filter(check == FALSE)
+
+stopifnot(dim(group_check)[1] == 0)
+
+```
+
+
+## Member Count - Start
+
+```{r}
+member_start = df_orig |> 
+  select(group_name, firstname, lastname) |> 
+  distinct() |> 
+  group_by(group_name) |> 
+  summarise(n_start = n())
+
+member_start
+
+```
+
 
 ## Make data long and separate date to be processed without quantity
 
@@ -196,17 +231,39 @@ df_long_tm |>
 # kwb_keep = NA
 # kwm_keep = NA
 
-group_a_default = 'Foster, Bill [7]'
-group_h_default = 'Abente, Betsy [30]'
-group_c_default = 'Ismaeel, Carrie [70]'
-group_m_default = 'Biundo (staff), Rebecca [90]'
-group_u_default = NA
+############################################################
 
+# #Wednesday
+# group_a_default = 'Foster, Bill [7]'
+# group_h_default = 'Abente, Betsy [30]'
+# group_c_default = 'Ismaeel, Carrie [70]'
+# group_m_default = 'Biundo (staff), Rebecca [90]'
+# group_u_default = NA
+# 
+# #Wednesday
+# group_a_keep = TRUE
+# group_h_keep = TRUE
+# group_c_keep = TRUE
+# group_m_keep = TRUE
+# group_u_keep = NA
+
+############################################################
+
+#Thursday
+group_a_default = 'Garrett, Elizabeth/Kelly [32]'
+group_h_default = 'Clark, Ben [53]'
+group_c_default = 'Faust, Thomas [4]'
+group_m_default = 'Blatter, Alisa [71]'
+group_u_default = 'Edwards, Catherine [106]'
+
+#Thursday
 group_a_keep = TRUE
 group_h_keep = TRUE
 group_c_keep = TRUE
 group_m_keep = TRUE
-group_u_keep = NA
+group_u_keep = TRUE
+
+############################################################
 
 food_list_group_name = c('A','H','C','M','U')
 
@@ -362,6 +419,16 @@ delete_list_items = df_long_def |>
 
 delete_list_items
 
+# delete_list_plants = sh_plants$item
+
+delete_plants = df_long_def |> 
+  filter(str_detect(item, 'Pot Plant')) |> 
+  # filter(item %in% delete_list_plants) |> 
+  group_by(item) |> 
+  summarise(Count = n())
+
+delete_plants
+
 delete_no_share = df_long_def |> 
   inner_join(df_long_def |> 
                filter(item %in% c('1 No Share - Order Only (even wk)',
@@ -387,9 +454,27 @@ df_long_def |>
 
 df_long_del = df_long_def |> 
   filter(!item %in% delete_list_permanent) |> 
-  filter(!id %in% delete_no_share$id)
+  filter(!id %in% delete_no_share$id) |> 
+  filter(!item %in% delete_plants$item)
 
 df_long_del |> head(20)
+
+```
+
+## Plant Print Out
+
+```{r}
+plant_output = df_long_def |> 
+  filter(item %in% delete_plants$item) |>
+  select(group_name, lastname, firstname, item, quantity, description, time)
+
+plant_output
+
+wb_p <- createWorkbook(title = 'PotPlant_File')
+addWorksheet(wb_p, "sheet1")
+writeData(wb_p, "sheet1", plant_output)
+
+saveWorkbook(wb_p, "PotPlant_File.xlsx", overwrite = TRUE)
 
 ```
 
@@ -605,7 +690,7 @@ df_symbol_inputs_pizza = data.frame(match_name = c('contains', 'contains', 'cont
                              )
 
 df_symbol_inputs_other = data.frame(match_name = c('contains', 'contains', 'contains','contains','contains','contains')
-                             ,text_name = c('FF Dish - Creole Shrimp & Okra','Pork - Andouille links','Raw Milk Aged Cheddar','Pickup Time','Schlafly Beer','Pot Plant')
+                             ,text_name = c('FF Dish - Creole Shrimp & Okra','Pork - Andouille links','Raw Milk Aged Cheddar','Pickup Time','Schlafly Beer','Pre-ordered Plants')
                              ,freeform_text = c('[**]', '[andouille]', '[1]',NA, NA,NA)
                              ,emoji_name = c(emo::ji('fried_shrimp'), NA, emo::ji('cheese'), emo::ji('clock3'), emo::ji('beer'), emo::ji('seedling'))
                              )
@@ -862,6 +947,23 @@ style_xlsx(wb, "testing", 2, 'contains', "Pickup Time", NA, 'italic')
 
 openXL(wb)
 
-saveWorkbook(wb, "print_04_06_2022.xlsx", overwrite = TRUE)
+saveWorkbook(wb, "print_04_07_2022.xlsx", overwrite = TRUE)
+```
+
+## Member Count - End
+
+```{r}
+member_end = df_long_del |> 
+  filter(rank >= 0) |> 
+  select(group_name, firstname, lastname) |> 
+  distinct() |> 
+  group_by(group_name) |> 
+  summarise(n_end = n())
+
+member_start |> 
+  full_join(member_end
+            , by = c('group_name')) |> 
+  mutate(difference = n_start - n_end)
+
 ```
 
