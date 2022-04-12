@@ -40,7 +40,7 @@ gs4_auth(email = "")
 ```{r}
 sh_shares = range_read('1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ'
                 ,sheet = 'shares'
-                ,col_types = 'cccc--'
+                ,col_types = 'ccccc--'
                 ,skip = 1
 )
 
@@ -59,6 +59,8 @@ sh_delete = range_read('1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ'
 
 Making sure that the Group Names in the CSV file match the Group Names we have in Google Sheets. If not then we need to update the Google Sheet document with the new Group Name. Otherwise keep running code. 
 
+If there are groups here that have "Trial" in them then flag to Sara or Jamie. 
+
 ```{r}
 group_check = df_orig |> 
   select(group_name) |> 
@@ -68,13 +70,34 @@ group_check = df_orig |>
 
 stopifnot(dim(group_check)[1] == 0)
 
+if (dim(group_check)[1] > 0) {
+  group_check
+}
+
 ```
 
 
 ## Member Count - Start
 
 ```{r}
-member_start = df_orig |> 
+df_orig_sh = df_orig  |>  
+  left_join(sh_shares |> #bringing in short group name
+          select(group_name, group_name_short) |> 
+          distinct()
+          , by = c('group_name')
+          ) |> 
+  mutate(group_name = ifelse(is.na(group_name_short) 
+                             | group_name_short == '', group_name, group_name_short)
+         ) |>
+  select(-group_name_short)
+
+sh_shares_shrt = sh_shares |> 
+  mutate(group_name = ifelse(is.na(group_name_short) 
+                             | group_name_short == '', group_name, group_name_short)
+         ) |>
+  select(-group_name_short)
+
+member_start = df_orig_sh |> 
   select(group_name, firstname, lastname) |> 
   distinct() |> 
   group_by(group_name) |> 
@@ -88,7 +111,8 @@ member_start
 ## Make data long and separate date to be processed without quantity
 
 ```{r}
-df_orig_long = df_orig  |>  
+
+df_orig_long = df_orig_sh  |> 
   mutate(order = strsplit(as.character(order), ",")) |>
   unnest(order) |> 
   mutate(pickuptime = ifelse(str_detect(order, "Pickup Time"), 2, NA),
@@ -104,7 +128,7 @@ df_orig_long = df_orig  |>
          ,name_long = paste0(lastname,', ',firstname,' [',id,']')
          ) |> 
   select(-group_bool, -pickuptime) |> 
-  rbind(df_orig |> #bringing in a new row for each group_name
+  rbind(df_orig_sh |> #bringing in a new row for each group_name
           select(group_name) |> 
           distinct() |> 
           mutate(firstname = '0'
@@ -117,7 +141,7 @@ df_orig_long = df_orig  |>
                  ,name_long = paste0(lastname,', ',firstname,' [',id,']')
                   )
         ) |> 
-    rbind(df_orig |> #bringing in a new row for each member name
+    rbind(df_orig_sh |> #bringing in a new row for each member name
           select(group_name, firstname, lastname, id) |> 
           distinct() |> 
           mutate(quantity = NA
@@ -128,7 +152,7 @@ df_orig_long = df_orig  |>
                   ) |> 
           select(group_name, firstname, lastname, quantity, item, id, item_original, rank, name_long)
         ) |> 
-    rbind(df_orig |> #bringing in a new spacer row for each member name
+    rbind(df_orig_sh |> #bringing in a new spacer row for each member name
           select(group_name, firstname, lastname, id) |> 
           distinct() |> 
           mutate(quantity = NA
@@ -196,24 +220,24 @@ df_long_tm |>
 ```
 
 
-## Default Orders
+## Standard Share
 
 ```{r}
-# fs_w_default = NA
-# fs_t_default = NA
-# fsa_default = 'Foster, Bill [?]' ##'Foster, Bill [9]'
-# fsb_default = 'Abente, Betsy [?]'
-# fsc_w_default = 'Ismaeel, Carrie [?]'
-# fsc_t_default = NA
-# fsd_default = NA
-# fsm_w_default = 'Biundo (staff), Rebecca [?]'
-# fsm_t_default = NA
-# uca_default = NA
-# ucb_default = 'Abente, Betsy [?]'
-# ucm_default = NA
-# kwa_default = NA
-# kwb_default = NA
-# kwm_default = NA
+# fs_w_stndrd = NA
+# fs_t_stndrd = NA
+# fsa_stndrd = 'Foster, Bill [?]' ##'Foster, Bill [9]'
+# fsb_stndrd = 'Abente, Betsy [?]'
+# fsc_w_stndrd = 'Ismaeel, Carrie [?]'
+# fsc_t_stndrd = NA
+# fsd_stndrd = NA
+# fsm_w_stndrd = 'Biundo (staff), Rebecca [?]'
+# fsm_t_stndrd = NA
+# uca_stndrd = NA
+# ucb_stndrd = 'Abente, Betsy [?]'
+# ucm_stndrd = NA
+# kwa_stndrd = NA
+# kwb_stndrd = NA
+# kwm_stndrd = NA
 # 
 # fs_w_keep = NA
 # fs_t_keep = NA
@@ -234,11 +258,11 @@ df_long_tm |>
 ############################################################
 
 # #Wednesday
-# group_a_default = 'Foster, Bill [7]'
-# group_h_default = 'Abente, Betsy [30]'
-# group_c_default = 'Ismaeel, Carrie [70]'
-# group_m_default = 'Biundo (staff), Rebecca [90]'
-# group_u_default = NA
+# group_a_stndrd = 'Foster, Bill [7]'
+# group_h_stndrd = 'Abente, Betsy [30]'
+# group_c_stndrd = 'Ismaeel, Carrie [70]'
+# group_m_stndrd = 'Biundo (staff), Rebecca [90]'
+# group_u_stndrd = NA
 # 
 # #Wednesday
 # group_a_keep = TRUE
@@ -250,11 +274,11 @@ df_long_tm |>
 ############################################################
 
 #Thursday
-group_a_default = 'Garrett, Elizabeth/Kelly [32]'
-group_h_default = 'Clark, Ben [53]'
-group_c_default = 'Faust, Thomas [4]'
-group_m_default = 'Blatter, Alisa [71]'
-group_u_default = 'Edwards, Catherine [106]'
+group_a_stndrd = 'Garrett, Elizabeth/Kelly [32]'
+group_h_stndrd = 'Clark, Ben [53]'
+group_c_stndrd = 'Faust, Thomas [4]'
+group_m_stndrd = 'Blatter, Alisa [71]'
+group_u_stndrd = 'Edwards, Catherine [106]'
 
 #Thursday
 group_a_keep = TRUE
@@ -271,14 +295,14 @@ food_list_group_name = c('A','H','C','M','U')
 #            'FSA', 'FSB', 'FSC-W', 'FSC-T', 'FSD', 'FSMini-w', 'FSMini-t',
 #            'UCA', 'UCB', 'UCM', 'KWA', 'KWB', 'KWM'
 #            )
-shares = sh_shares$group_name
-
-# df_defaults = data.frame(group_name = shares
-#                          ,name_long = c(fs_w_default, fs_t_default, 
-#                                         fsa_default, fsb_default, 
-#                                         fsc_w_default, fsc_t_default, fsd_default, fsm_w_default, fsm_t_default, 
-#                                         uca_default, ucb_default, ucm_default, 
-#                                         kwa_default, kwb_default, kwm_default
+# shares = sh_shares$group_name
+# 
+# df_stndrds = data.frame(group_name = shares
+#                          ,name_long = c(fs_w_stndrd, fs_t_stndrd, 
+#                                         fsa_stndrd, fsb_stndrd, 
+#                                         fsc_w_stndrd, fsc_t_stndrd, fsd_stndrd, fsm_w_stndrd, fsm_t_stndrd, 
+#                                         uca_stndrd, ucb_stndrd, ucm_stndrd, 
+#                                         kwa_stndrd, kwb_stndrd, kwm_stndrd
 #                                         )
 #                          ,keep_remove = c(fs_w_keep, fs_t_keep, 
 #                                         fsa_keep, fsb_keep, 
@@ -287,23 +311,23 @@ shares = sh_shares$group_name
 #                                         kwa_keep, kwb_keep, kwm_keep)
 #                          )
 
-df_defaults = data.frame(food_list_group_name
-                         , name_long = c(group_a_default, group_h_default, group_c_default
-                                         , group_m_default, group_u_default)
+df_stndrds = data.frame(food_list_group_name
+                         , name_long = c(group_a_stndrd, group_h_stndrd, group_c_stndrd
+                                         , group_m_stndrd, group_u_stndrd)
                          , keep_remove = c(group_a_keep, group_h_keep, group_c_keep
                                          , group_m_keep, group_u_keep)
                          )
 
-df_defaults = df_defaults |> 
-  inner_join(sh_shares |> 
+df_stndrds = df_stndrds |> 
+  inner_join(sh_shares_shrt |> 
               select(group_name, food_list_group_name)
             , by = c('food_list_group_name')
             )
 
   
-default_customers_all = df_long_tm |> 
+stndrd_customers_all = df_long_tm |> 
   left_join(df_long_tm |> 
-              inner_join(df_defaults |> 
+              inner_join(df_stndrds |> 
                            filter(!is.na(name_long))
                          , by = c('name_long')
                          ) |> 
@@ -312,10 +336,10 @@ default_customers_all = df_long_tm |>
               distinct() |> 
               group_by(food_list_group_name) |> 
               mutate(rank_v = rank(row_number()),
-                     default_rows= max(rank_v)
+                     stndrd_rows= max(rank_v)
                      ) |>
               ungroup() |> 
-              left_join(sh_shares |> 
+              left_join(sh_shares_shrt |> 
                            select(group_name, food_list_group_name)
                          , by = c('food_list_group_name')
                          ) |> 
@@ -323,20 +347,20 @@ default_customers_all = df_long_tm |>
             , by = c('group_name', 'item_original')
             ) |> 
   filter(rank == 3) |> 
-  select(id, name_long, group_name, item_original, default_rows) |> 
+  select(id, name_long, group_name, item_original, stndrd_rows) |> 
   distinct() |> 
   group_by(id) |> 
-  mutate(rank_v = sum(ifelse(!is.na(default_rows), 1, 0)),
+  mutate(rank_v = sum(ifelse(!is.na(stndrd_rows), 1, 0)),
          customer_rows = max(rank_v),
-         rank_n_full = ifelse(!is.na(default_rows), rank(row_number()), 0),
+         rank_n_full = ifelse(!is.na(stndrd_rows), rank(row_number()), 0),
          customer_n_full_rows = max(rank_n_full),
          n_full_rows = sum(ifelse(rank_n_full == 0, 1, 0))
          ) |>
   ungroup() 
 
-default_customers_full_match = default_customers_all |> 
-  filter(default_rows == customer_rows & n_full_rows == 0) |> 
-  left_join(df_defaults |> 
+stndrd_customers_full_match = stndrd_customers_all |> 
+  filter(stndrd_rows == customer_rows & n_full_rows == 0) |> 
+  left_join(df_stndrds |> 
               filter(!is.na(name_long))
             , by = c('name_long')
             ) |> 
@@ -344,12 +368,12 @@ default_customers_full_match = default_customers_all |>
   select(id, keep_remove) |> 
   distinct() 
 
-default_customers_match_w_extras = default_customers_all |> 
-  filter(default_rows == (customer_n_full_rows - n_full_rows) & n_full_rows > 0) |> 
+stndrd_customers_match_w_extras = stndrd_customers_all |> 
+  filter(stndrd_rows == (customer_n_full_rows - n_full_rows) & n_full_rows > 0) |> 
   select(id) |> 
   distinct() |> 
-  left_join(default_customers_all |> 
-              filter(is.na(default_rows)) |> 
+  left_join(stndrd_customers_all |> 
+              filter(is.na(stndrd_rows)) |> 
               select(id, item_original)
               , by = c('id')
   ) |> 
@@ -358,31 +382,31 @@ default_customers_match_w_extras = default_customers_all |>
   distinct() 
   
 
-df_long_def = df_long_tm |> #bring in default trading member names
-  filter(id %in% (default_customers_full_match |> filter(keep_remove == TRUE))$id
-         | id %in% (default_customers_match_w_extras |> filter(keep_remove == TRUE))$id
+df_long_def = df_long_tm |> #bring in stndrd trading member names
+  filter(id %in% (stndrd_customers_full_match |> filter(keep_remove == TRUE))$id
+         | id %in% (stndrd_customers_match_w_extras |> filter(keep_remove == TRUE))$id
            ) |> 
   filter(rank <= 2) |> 
   select(-item_original) |> 
-  rbind(df_long_tm |>  #bring in Default trading item row
-          filter(id %in% (default_customers_full_match |> filter(keep_remove == TRUE))$id
-                 | id %in% (default_customers_match_w_extras |> filter(keep_remove == TRUE))$id
+  rbind(df_long_tm |>  #bring in stndrd trading item row
+          filter(id %in% (stndrd_customers_full_match |> filter(keep_remove == TRUE))$id
+                 | id %in% (stndrd_customers_match_w_extras |> filter(keep_remove == TRUE))$id
             ) |> 
           filter(rank >= 3) |> 
           mutate(quantity = NA,
-                 item = ifelse(rank == 3, 'DEFAULT TRADEABLE ITEMS', item)
+                 item = ifelse(rank == 3, 'STANDARD SHARE ITEMS', item)
                  ) |> 
           select(-item_original) |> 
           distinct()
   ) |> 
-  rbind(df_long_tm |>  #bring in all members not in default member list
+  rbind(df_long_tm |>  #bring in all members not in stndrd member list
           select(-item_original) |> 
-          filter(!id %in% (default_customers_full_match |> filter(keep_remove == TRUE))$id
-                 & !id %in% (default_customers_match_w_extras |> filter(keep_remove == TRUE))$id
+          filter(!id %in% (stndrd_customers_full_match |> filter(keep_remove == TRUE))$id
+                 & !id %in% (stndrd_customers_match_w_extras |> filter(keep_remove == TRUE))$id
                  )
   ) |> 
-  rbind(df_long_tm |>  #bring in items that have a default item match but have extra sales
-          inner_join(default_customers_match_w_extras |> 
+  rbind(df_long_tm |>  #bring in items that have a stndrd item match but have extra sales
+          inner_join(stndrd_customers_match_w_extras |> 
                        select(-keep_remove)
                     , by = c('id','item_original')
                      ) |> 
@@ -391,11 +415,11 @@ df_long_def = df_long_tm |> #bring in default trading member names
   arrange(group_name, description, time, lastname, firstname, id, rank)
   
 df_long_def |> 
-  inner_join(default_customers_match_w_extras |> 
+  inner_join(stndrd_customers_match_w_extras |> 
              select(-item_original) |> 
              mutate(extras = TRUE) |> 
              distinct() |> 
-             rbind(default_customers_full_match |> 
+             rbind(stndrd_customers_full_match |> 
                      mutate(extras = FALSE))
              , by = c('id')
              ) |> 
@@ -775,13 +799,13 @@ df_long_symbol_c2 = column2_print |>
 ```{r}
 
 df_long_sh_color_c1 = df_long_symbol_c1 |> 
-  left_join(sh_shares
+  left_join(sh_shares_shrt
             , by = c('group_name')
             ) |> 
   mutate(highlight_color_hex = ifelse(rank <= 0, highlight_color_hex, NA))
 
 df_long_sh_color_c2 = df_long_symbol_c2 |> 
-  left_join(sh_shares
+  left_join(sh_shares_shrt
             , by = c('group_name')
             ) |> 
   mutate(highlight_color_hex = ifelse(rank <= 0, highlight_color_hex, NA))
@@ -931,7 +955,7 @@ df_long_sh_color = df_long_sh_color_c1
 
 # style_xlsx(wb, "testing", 1, 'contains', "Pickup Time", '#efefef', 'bold')
 # style_xlsx(wb, "testing", 1, 'contains', "Pickup Time", NA, 'bold')
-style_xlsx(wb, "testing", 1, 'equal', "DEFAULT TRADEABLE ITEMS", NA, 'bold')
+style_xlsx(wb, "testing", 1, 'equal', "STANDARD SHARE ITEMS", NA, 'bold')
 style_xlsx(wb, "testing", 1, 'contains', "Pickup Time", NA, 'italic')
 
 df_long_sh_color = df_long_sh_color_c2
@@ -942,7 +966,7 @@ df_long_sh_color = df_long_sh_color_c2
 # style_xlsx(wb, "testing", 2, 'contains', "Pickup Time", '#efefef', 'bold')
 # style_xlsx(wb, "testing", 2, 'contains', "Pickup Time", NA, 'bold')
 
-style_xlsx(wb, "testing", 2, 'equal', "DEFAULT TRADEABLE ITEMS", NA, 'bold')
+style_xlsx(wb, "testing", 2, 'equal', "STANDARD SHARE ITEMS", NA, 'bold')
 style_xlsx(wb, "testing", 2, 'contains', "Pickup Time", NA, 'italic')
 
 openXL(wb)
