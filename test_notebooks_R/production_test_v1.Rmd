@@ -21,7 +21,15 @@ library(emo)
 ## load data file
 
 ```{r}
-file_name = 'Member Pick-up Details-04_14_2022.csv'
+date = '04_14_2022'
+week = 'Week 4'
+
+order_only_list = c('1 No Share - Order Only (even wk)',
+                    '1 No Share - Order Only (odd wk)',
+                    '1 No Produce - Order Only (even wk)',
+                    '1 No Produce - Order Only (odd wk)')
+
+file_name = paste0('Member Pick-up Details-',date,'.csv')
 # file_name = 'Member Pick-up Details-06_09_2021.csv'
 df_orig = read.csv(paste0(directory,'/farmigo_downloads/',file_name)) |> 
   rename_all(tolower) |> 
@@ -122,7 +130,7 @@ df_orig_long = df_orig_sh  |>
   separate(order, into = c('quantity','item'), sep = 'x', extra = "merge") |> 
   mutate(item = ifelse(is.na(item) & !is.na(quantity), quantity, item)
          ,quantity = ifelse(item == quantity, NA, quantity)
-         ,group_bool = ifelse(is.na(quantity) & !is.na(item), 1, NA)
+         ,group_bool = ifelse(is.na(quantity) & !is.na(item) & !item %in% order_only_list, 1, NA)
          ,rank = ifelse(!is.na(group_bool), group_bool,
                         ifelse(!is.na(pickuptime), pickuptime, 3))
          ,name_long = paste0(lastname,', ',firstname,' [',id,']')
@@ -455,13 +463,13 @@ delete_plants
 
 delete_no_share = df_long_def |> 
   inner_join(df_long_def |> 
-               filter(item %in% c('1 No Share - Order Only (even wk)',
-                                  '1 No Share - Order Only (odd wk)')
+               filter(item %in% order_only_list
                       ) |> 
                select(id) |> 
                distinct()
              , by = c('id')
              ) |> 
+  filter(rank == 3) |> 
   group_by(id) |> 
   mutate(rank_v = rank(row_number()),
          rows= max(rank_v)
@@ -498,7 +506,7 @@ wb_p <- createWorkbook(title = 'PotPlant_File')
 addWorksheet(wb_p, "sheet1")
 writeData(wb_p, "sheet1", plant_output)
 
-saveWorkbook(wb_p, "PotPlant_File_2022_04_14.xlsx", overwrite = TRUE)
+saveWorkbook(wb_p, paste0('PotPlant_File_',date,'.xlsx'), overwrite = TRUE)
 
 ```
 
@@ -701,22 +709,48 @@ column2_print = print_full |>
 #                              ,emoji_name = c(emo::ji('chicken'), emo::ji('cow'), emo::ji('chocolate'))
 #                              )
 
-df_symbol_inputs_milk = data.frame(match_name = c('contains', 'contains', 'contains', 'contains', 'contains', 'contains', 'contains', 'contains', 'contains', 'contains', 'contains')
-                             ,text_name = c('Milk - 2%','Milk - Chocolate','Milk - Creamline','Milk - Skim','Milk - Whole', '2% MILK', 'Chocolate MILK', 'Creamline MILK', 'Skim MILK', 'Whole MILK', 'Whole Milk - o')
-                             ,freeform_text = c('[*]', '[*]', '[*]', '[*]', '[*]','[*]', '[*]', '[*]', '[*]', '[*]', '[*]')
-                             ,emoji_name = c(emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2'))
+df_symbol_inputs_milk = data.frame(match_name = c('contains', 'contains', 'contains'
+                                                  , 'contains', 'contains', 'contains'
+                                                  , 'contains', 'contains', 'contains'
+                                                  , 'contains', 'contains', 'contains')
+                             ,text_name = c('Milk - 2%','Milk - Chocolate','Milk - Creamline'
+                                            , 'Milk - Skim','Milk - Whole', '2% MILK'
+                                            , 'Chocolate MILK', 'Creamline MILK', 'Skim MILK'
+                                            , 'Whole MILK', 'Whole Milk - o'
+                                            , '64 Oz. Heavy Cream')
+                             ,freeform_text = c('[*]', '[*]', '[*]', '[*]', '[*]'
+                                                , '[*]', '[*]', '[*]', '[*]', '[*]'
+                                                , '[*]', '[*]')
+                             ,emoji_name = c(emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2')
+                                             , emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2')
+                                             , emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2')
+                                             , emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2'))
                              )
 
-df_symbol_inputs_pizza = data.frame(match_name = c('contains', 'contains', 'contains', 'contains', 'contains', 'contains', 'contains', 'contains')
-                             ,text_name = c('Pizza - Cheese','Pizza - Deluxe','Pizza - Four Meat','Pizza - Hot Chicken','Pizza - Pepperoni','Pizza - Sausage Pepperoni','Pizza - Tomato Basil Garlic','Pizza - Veggie')
-                             ,freeform_text = c('[**]', '[**]', '[**]', '[**]', '[**]', '[**]', '[**]', '[**]')
-                             ,emoji_name = c(emo::ji('pizza'), emo::ji('pizza'), emo::ji('pizza'), emo::ji('pizza'), emo::ji('pizza'), emo::ji('pizza'), emo::ji('pizza'), emo::ji('pizza'))
+df_symbol_inputs_pizza = data.frame(match_name = c('contains', 'contains', 'contains'
+                                                   , 'contains', 'contains', 'contains'
+                                                   , 'contains', 'contains')
+                             ,text_name = c('Pizza - Cheese','Pizza - Deluxe'
+                                            ,'Pizza - Four Meat','Pizza - Hot Chicken'
+                                            ,'Pizza - Pepperoni','Pizza - Sausage Pepperoni'
+                                            ,'Pizza - Tomato Basil Garlic','Pizza - Veggie')
+                             ,freeform_text = c('[**]', '[**]', '[**]', '[**]'
+                                                , '[**]', '[**]', '[**]', '[**]')
+                             ,emoji_name = c(emo::ji('pizza'), emo::ji('pizza'), emo::ji('pizza')
+                                             , emo::ji('pizza'), emo::ji('pizza'), emo::ji('pizza')
+                                             , emo::ji('pizza'), emo::ji('pizza'))
                              )
 
-df_symbol_inputs_other = data.frame(match_name = c('contains', 'contains', 'contains','contains','contains','contains')
-                             ,text_name = c('FF Dish - Creole Shrimp & Okra','Pork - Andouille links','Raw Milk Aged Cheddar','Pickup Time','Schlafly Beer','Pre-ordered Plants')
+df_symbol_inputs_other = data.frame(match_name = c('contains', 'contains','contains'
+                                                   ,'contains','contains','contains')
+                             ,text_name = c('FF Dish - Creole Shrimp & Okra'
+                                            , 'Pork - Andouille links','Raw Milk Aged Cheddar'
+                                            , 'Pickup Time','Schlafly Beer'
+                                            , 'Pre-ordered Plants')
                              ,freeform_text = c('[**]', '[andouille]', '[1]',NA, NA,NA)
-                             ,emoji_name = c(emo::ji('fried_shrimp'), NA, emo::ji('cheese'), emo::ji('clock3'), emo::ji('beer'), emo::ji('seedling'))
+                             ,emoji_name = c(emo::ji('fried_shrimp'), NA, emo::ji('cheese')
+                                             , emo::ji('clock3'), emo::ji('beer')
+                                             , emo::ji('seedling'))
                              )
 df_symbol_inputs = df_symbol_inputs_milk |> 
   rbind(df_symbol_inputs_pizza) |> 
@@ -811,9 +845,17 @@ df_long_sh_color_c2 = df_long_symbol_c2 |>
   mutate(highlight_color_hex = ifelse(rank <= 0, highlight_color_hex, NA))
 
 write_df = df_long_sh_color_c1 |>
+  mutate(item_symbol = ifelse(rank == -1
+                             , paste0(item_symbol, ' (',week, ' - ', date,')')
+                             , item_symbol)
+         ) |> 
   select(item_1 = item_symbol) |>
   cbind(
-    df_long_sh_color_c2 |> 
+    df_long_sh_color_c2 |>
+      mutate(item_symbol = ifelse(rank == -1
+                             , paste0(item_symbol, ' (',week, ' - ', date,')')
+                             , item_symbol)
+         ) |> 
       select(item_2 = item_symbol)
   )
 
@@ -971,7 +1013,9 @@ style_xlsx(wb, "testing", 2, 'contains', "Pickup Time", NA, 'italic')
 
 openXL(wb)
 
-saveWorkbook(wb, "print_04_14_2022.xlsx", overwrite = TRUE)
+
+saveWorkbook(wb, paste0('print_',date,'.xlsx'), overwrite = TRUE)
+# saveWorkbook(wb, "TestFile.xlsx", overwrite = TRUE)
 ```
 
 ## Member Count - End
