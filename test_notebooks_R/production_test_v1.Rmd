@@ -332,16 +332,27 @@ df_stndrds = df_stndrds |>
             , by = c('food_list_group_name')
             )
 
+df_stndrds_item = df_long_tm |> 
+  inner_join(df_stndrds |> 
+               filter(!is.na(name_long))
+             , by = c('name_long')
+             ) |> 
+  filter(rank == 3) 
   
+df_stndrds_item_grp = df_stndrds_item |> 
+  select(food_list_group_name, item) |> 
+  distinct()|> 
+  left_join(sh_shares_shrt |> 
+              select(group_name, food_list_group_name)
+            , by = c('food_list_group_name')
+            ) |> 
+  select(-food_list_group_name) |> 
+  mutate(standard_item = 1)
+
 stndrd_customers_all = df_long_tm |> 
-  left_join(df_long_tm |> 
-              inner_join(df_stndrds |> 
-                           filter(!is.na(name_long))
-                         , by = c('name_long')
-                         ) |> 
-              filter(rank == 3) |> 
+  left_join(df_stndrds_item |> 
               select(food_list_group_name, item_original) |> 
-              distinct() |> 
+              distinct()|> 
               group_by(food_list_group_name) |> 
               mutate(rank_v = rank(row_number()),
                      stndrd_rows= max(rank_v)
@@ -420,7 +431,9 @@ df_long_def = df_long_tm |> #bring in stndrd trading member names
                      ) |> 
           select(-item_original) 
   ) |> 
-  arrange(group_name, description, time, lastname, firstname, id, rank)
+  arrange(group_name, description, time, lastname, firstname, id, rank) |> 
+  left_join(df_stndrds_item_grp
+            , by = c('item','group_name'))
   
 df_long_def |> 
   inner_join(stndrd_customers_match_w_extras |> 
@@ -799,7 +812,10 @@ df_long_symbol_c1 = column1_print |>
             ) |> 
   mutate(quantity = ifelse(is.na(quantity), '', as.character(quantity))
            , item_symbol = ifelse(quantity == '', item, paste0(quantity,'x',item))
-           , item_symbol = ifelse(is.na(symbol_text), item_symbol, paste0(symbol_text, item_symbol))
+           , qty_symbol = ifelse(quantity > 1, emo::ji('plus'), '')
+           , item_symbol = ifelse(is.na(symbol_text)
+                                  , paste0(qty_symbol, item_symbol)
+                                  , paste0(qty_symbol, symbol_text, item_symbol))
          )
 
 symbol_search_c2 = column2_print |> 
@@ -823,7 +839,10 @@ df_long_symbol_c2 = column2_print |>
             ) |> 
   mutate(quantity = ifelse(is.na(quantity), '', as.character(quantity))
            , item_symbol = ifelse(quantity == '', item, paste0(quantity,'x',item))
-           , item_symbol = ifelse(is.na(symbol_text), item_symbol, paste0(symbol_text, item_symbol))
+           , qty_symbol = ifelse(quantity > 1, emo::ji('plus'), '')
+           , item_symbol = ifelse(is.na(symbol_text)
+                                  , paste0(qty_symbol, item_symbol)
+                                  , paste0(qty_symbol, symbol_text, item_symbol))
          )
 
 ```
@@ -866,13 +885,16 @@ writeData(wb, "testing", write_df, colNames = FALSE)
 setColWidths(wb, "testing", cols = 1:2, widths = 40)
 modifyBaseFont(wb, fontSize = 12, fontColour = "black", fontName = "Calibri")
 
+## Coloring each Group and Member names based on Google Sheet 
+
+#### Column 1
 test_color_c1 = df_long_sh_color_c1 |> 
   mutate(ss_cell = row_number()) |> 
   filter(!is.na(highlight_color_hex)) 
 
 for (i in (test_color_c1 |> select(highlight_color_hex) |> distinct() |> pull())) {
   print(i)
-  bhfill_style <- createStyle(bgFill = i, textDecoration = "bold") 
+  bhfill_style <- createStyle(bgFill = i, textDecoration = "bold")
 
   for (j in (test_color_c1 |> filter(highlight_color_hex == i) |> select(ss_cell) |> distinct() |> pull())) {
     conditionalFormatting(wb, "testing", rule = "!=0", cols = 1, rows = j, style = bhfill_style)
@@ -881,13 +903,14 @@ for (i in (test_color_c1 |> select(highlight_color_hex) |> distinct() |> pull())
 
 }
 
+#### Column 2
 test_color_c2 = df_long_sh_color_c2 |> 
   mutate(ss_cell = row_number()) |> 
   filter(!is.na(highlight_color_hex)) 
 
 for (i in (test_color_c2 |> select(highlight_color_hex) |> distinct() |> pull())) {
   print(i)
-  bhfill_style <- createStyle(bgFill = i, textDecoration = "bold") 
+  bhfill_style <- createStyle(bgFill = i, textDecoration = "bold")
 
   for (j in (test_color_c2 |> filter(highlight_color_hex == i) |> select(ss_cell) |> distinct() |> pull())) {
     conditionalFormatting(wb, "testing", rule = "!=0", cols = 2, rows = j, style = bhfill_style)
@@ -895,6 +918,28 @@ for (i in (test_color_c2 |> select(highlight_color_hex) |> distinct() |> pull())
   }
 
 }
+
+## Bold each item if its in the Standard Item List for that group
+
+bold_stndrd_item_c1 = df_long_sh_color_c1 |> 
+  mutate(ss_cell = row_number()) |> 
+  filter(!is.na(standard_item)) 
+
+for (j in (bold_stndrd_item_c1 |> select(ss_cell) |> distinct() |> pull())) {
+  bhfill_style <- createStyle(textDecoration = "bold")
+  conditionalFormatting(wb, "testing", rule = "!=0", cols = 1, rows = j, style = bhfill_style)
+  }
+
+bold_stndrd_item_c2 = df_long_sh_color_c2 |> 
+  mutate(ss_cell = row_number()) |> 
+  filter(!is.na(standard_item)) 
+
+for (j in (bold_stndrd_item_c2 |> select(ss_cell) |> distinct() |> pull())) {
+  bhfill_style <- createStyle(textDecoration = "bold")
+  conditionalFormatting(wb, "testing", rule = "!=0", cols = 2, rows = j, style = bhfill_style)
+  }
+
+## Create function to do color or text change based on search criteria in item
 
 style_xlsx = function(wb_n, sheet, col_n, match, text, colorhex, text_dec_name) {
   if (!is.na(colorhex) & !is.na(text_dec_name)) {  #HIGHLIGHT BACKGROUND AND DECORATE TEXT
