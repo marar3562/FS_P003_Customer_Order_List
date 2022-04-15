@@ -1,0 +1,14 @@
+# Secrets
+.secrets/
+
+# R notebook html files
+*.nb.html
+
+# dcf file of shinyapps
+*.dcf
+
+# shinyapps.io
+rsconnect/
+
+# R history
+.Rhistory
