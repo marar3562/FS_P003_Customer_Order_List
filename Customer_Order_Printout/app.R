@@ -12,7 +12,6 @@ library(openxlsx)
 library(emoji)
 library(emo)
 
-
 ## load settings data
 gs4_auth(cache = ".secrets", email = TRUE, use_oob = TRUE) #use in shinyapps prod to connect to data
 sh_shares = range_read('1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ'
@@ -64,7 +63,7 @@ order_only_list = c('1 No Share - Order Only (even wk)',
 ui <- fluidPage(
 
     # Application title
-    titlePanel("Test"),
+    titlePanel("Customer Order Printout"),
     
     tabsetPanel(
       tabPanel("Step 1 - Load Data",
@@ -72,18 +71,20 @@ ui <- fluidPage(
     # Sidebar with a slider input for number of bins 
     sidebarLayout(
       sidebarPanel(
-        textOutput("step1a"),
+        h4(textOutput("step1a")),
         dateInput("date_value","Enter Pickup Date (used in printout)"
                   ,ymd(str_sub(lubridate::now(),1, 10))
                   ,datesdisabled = all_date$all_dates
                   ),
         actionButton("p_file","Step 1a. Process Date Selected"),
         uiOutput("week_value"),
-        h4("Step 1b"),
+        h4(textOutput("step1b")),
         uiOutput("file_rui"),
         uiOutput("button_1b_rui"),
-        h4("Step 1c"),
-        uiOutput("button_1c_rui")
+        h4(textOutput("step1c")),
+        uiOutput("button_1c_rui"),
+        h3(uiOutput("step1")),
+        h3(uiOutput("step1_"))
         
         ),
       mainPanel(
@@ -112,6 +113,8 @@ server <- function(input, output) {
   ## Step 1 (Load Data)
   
   output$step1a = renderText(paste0("Step 1a ",emo::ji('black_circle')))
+  output$step1b = renderText(paste0("Step 1b ",emo::ji('black_circle')))
+  output$step1c = renderText(paste0("Step 1c ",emo::ji('black_circle')))
   
   ### Load Data
   observeEvent(input$p_file,{
@@ -139,6 +142,7 @@ server <- function(input, output) {
         "Need to select a Wednesday or Thursday date on Fair Shares calendar.",
         easyClose = TRUE
       ))
+      output$step1a = renderText(paste0("Step 1a ",emo::ji('cross_mark')))
     }
     
   })
@@ -154,6 +158,7 @@ server <- function(input, output) {
         "Please upload a csv file",
         easyClose = TRUE
       ))
+      output$step1b = renderText(paste0("Step 1b ",emo::ji('cross_mark')))
     } else{
       input$file_input$datapath %>% 
         read_csv() -> df
@@ -162,6 +167,7 @@ server <- function(input, output) {
         output$button_1c_rui <- renderUI(
           actionButton("ppp_file","Step 1c. Process File"),
         )
+        output$step1b = renderText(paste0("Step 1b ",emo::ji('heavy_check_mark')))
       } else {
         showModal(modalDialog(
           title = "Warning",
@@ -169,6 +175,7 @@ server <- function(input, output) {
           Make sure the file has four columns (Pickup Site, First Name, Last Name, Order)",
           easyClose = TRUE
         ))
+        output$step1b = renderText(paste0("Step 1b ",emo::ji('cross_mark')))
       }
       
     }
@@ -212,6 +219,7 @@ server <- function(input, output) {
         2) Update the Standard Setup file"),
         easyClose = TRUE
       ))
+      output$step1c = renderText(paste0("Step 1c ",emo::ji('cross_mark')))
     } else {
       
       #### Member Count - Start
@@ -359,12 +367,25 @@ server <- function(input, output) {
         output$preview1 <- renderDataTable(datatable(df_long_tm_view))
       # }
       
+      output$step1c = renderText(paste0("Step 1c ",emo::ji('heavy_check_mark')))
       
+      output$step1 <- renderUI(
+        renderText(paste0(emo::ji('heavy_check_mark'), " Step 1 is Complete! ",emo::ji('party_popper')))
+      )
+      output$step1_ <- renderUI(
+        renderText(paste0(emo::ji('index_pointing_up'),
+                          emo::ji('index_pointing_up'),
+                          "   GO TO STEP 2 TAB! "
+                          ,emo::ji('index_pointing_up')
+                          ,emo::ji('index_pointing_up')))
+      )
     }
     
   })
 
-  #########CURRENTLY IN THE PROCESS OF IMPLEMENTING EMOJIS TO SHOW WHERE WORK IS COMPLETE OR ERRORS HAVE OCCURED
+  ####### IN STEP 1 STILL NEED TO PROVIDE DIRECTIONS ON HOW TO GET FARMIGO CSV FILE
+  
+  #########START ON STEP 2 / TAB 2!!!
   
   ## Step 2 (Standard Shares)
   
