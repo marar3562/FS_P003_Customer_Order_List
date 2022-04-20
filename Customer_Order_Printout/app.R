@@ -57,7 +57,19 @@ order_only_list = c('1 No Share - Order Only (even wk)',
                     '1 No Produce - Order Only (even wk)',
                     '1 No Produce - Order Only (odd wk)')
 
+food_list_group_name = c('A','H','C','M','U')
 
+group_a_stndrd = NA
+group_h_stndrd = NA
+group_c_stndrd = NA
+group_m_stndrd = NA
+group_u_stndrd = NA
+
+group_a_keep = NA
+group_h_keep = NA
+group_c_keep = NA
+group_m_keep = NA
+group_u_keep = NA
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -102,6 +114,7 @@ ui <- fluidPage(
           h4("Step 2a")
         ),
         mainPanel(
+          tableOutput("preview2")
         )
       )
     )
@@ -172,6 +185,15 @@ server <- function(input, output) {
   df_format = reactiveValues(data = NULL)
   member_start = reactiveValues(data = NULL) #use later for member numbers before and after
   df_long_tm = reactiveValues(data = NULL)   #passed on as data set for steps
+  
+  #used in step 2
+  df_stndrds = reactiveValues(data = data.frame(food_list_group_name
+                                                , name_long = c(group_a_stndrd, group_h_stndrd, group_c_stndrd
+                                                                , group_m_stndrd, group_u_stndrd)
+                                                , keep_remove = c(group_a_keep, group_h_keep, group_c_keep
+                                                                  , group_m_keep, group_u_keep))
+  )
+  
   
   observeEvent(input$pp_file,{
     if(is.null(input$file_input$datapath)){
@@ -401,6 +423,20 @@ server <- function(input, output) {
                           ,emo::ji('index_pointing_up')
                           ,emo::ji('index_pointing_up')))
       )
+      
+      df_stndrds_vw = df_stndrds$data |> 
+        rename('Food List Group Name' = food_list_group_name
+               , 'Name and Id' = name_long
+               , 'Keep in Printout' = keep_remove)
+      output$preview2 <- renderTable(df_stndrds_vw)
+      
+      ##NEED A FILTER THAT SEARCHES FOR CUSTOMERS ORDERS WHEN THEY HAVE AN ITEM THAT CONTAINS...
+      ##NEED A DROP DOWN FILTER ON FOOD LIST GROUP NAME WHICH FILTERS THE SEARCH DATA FRAME
+          ##THIS WILL ALSO HELP WITH UPDATING THE DATA IN THE DATAFRAME
+      ##NEED A CUSTOMER LIST TO ADD TO THE DATAFRAME
+      ##NEED A DROP DOWN OF INCLUDE THE CUSTOMER NAME IN THE PRINT OUT OR NOT
+      ##PROVIDE WARNING WHEN MORE THAN ONE FOOD LIST GROUP DOES NOT HAVE A CUSTOMER NAME IN IT
+      ##A SECOND TABLE WILL OUTPUT ON SUCCESS THAT STATES THE MEMBERS IT FOUND MATCHING THE STANDARD SHARE
     }
     
   })
@@ -410,6 +446,8 @@ server <- function(input, output) {
   ## Step 2 (Standard Shares)
   
   ### Standard Share Members
+  
+  
   
   ## Step 3 (Delete Items)
   
