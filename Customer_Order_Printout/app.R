@@ -79,6 +79,7 @@ ui <- fluidPage(
         actionButton("p_file","Step 1a. Process Date Selected"),
         uiOutput("week_value"),
         h4(textOutput("step1b")),
+        uiOutput("help_1b_rui"),
         uiOutput("file_rui"),
         uiOutput("button_1b_rui"),
         h4(textOutput("step1c")),
@@ -127,6 +128,9 @@ server <- function(input, output) {
       output$week_value <- renderUI(
         h6(paste0("Week Number: ",date_df_fltr$week," Season: ",date_df_fltr$season))
       )
+      output$help_1b_rui <- renderUI(
+        actionButton("help_1b",paste0(emo::ji('computer_mouse')," Farmigo File Instructions")),
+      )
       output$file_rui <- renderUI(
         fileInput("file_input", "Choose your file in csv"
                   , multiple = FALSE
@@ -138,13 +142,31 @@ server <- function(input, output) {
       output$step1a = renderText(paste0("Step 1a ",emo::ji('heavy_check_mark')))
     } else {
       showModal(modalDialog(
-        title = "Warning",
+        title = paste0(emo::ji('stop_sign')," Error"),
         "Need to select a Wednesday or Thursday date on Fair Shares calendar.",
         easyClose = TRUE
       ))
       output$step1a = renderText(paste0("Step 1a ",emo::ji('cross_mark')))
     }
     
+  })
+  
+  observeEvent(input$help_1b,{
+    showModal(modalDialog(
+      title = paste0(emo::ji('information')," Help"),
+      HTML("To Download the Farmigo Customer CSV File: <br>
+      1. Navigate to Farmigo website (<a href='https://csa.farmigo.com/dashboard/fairsharesccsa/members'>Farmigo Weblink</a>) <br>
+      2. Click on 'Reports' <br>
+      3. Click on 'Member Pick Up Details' <br>
+      4. Select the 'Delivery date' of interest <br>
+      5. All 'Routes' should be selected <br>
+      6. 'Store Orders and Subscriptions' should be selected under 'Items Type'<br>
+      7. 'Contact details' should be left off the download<br>
+      8. Click 'Download CSV' <br>
+      9. Once downloaded you can click 'Dismiss' on this message and 'Browse' for this new file in the dashboard
+      "),
+      easyClose = TRUE
+    ))
   })
   
   df_format = reactiveValues(data = NULL)
@@ -154,7 +176,7 @@ server <- function(input, output) {
   observeEvent(input$pp_file,{
     if(is.null(input$file_input$datapath)){
       showModal(modalDialog(
-        title = "Warning",
+        title = paste0(emo::ji('stop_sign')," Error"),
         "Please upload a csv file",
         easyClose = TRUE
       ))
@@ -170,7 +192,7 @@ server <- function(input, output) {
         output$step1b = renderText(paste0("Step 1b ",emo::ji('heavy_check_mark')))
       } else {
         showModal(modalDialog(
-          title = "Warning",
+          title = paste0(emo::ji('stop_sign')," Error"),
           "File is not of correct format. 
           Make sure the file has four columns (Pickup Site, First Name, Last Name, Order)",
           easyClose = TRUE
@@ -211,7 +233,7 @@ server <- function(input, output) {
     if (dim(group_check |> select(group_name) |> distinct())[1] > 0) {
       output$preview1 <- renderDataTable(datatable(group_check))
       showModal(modalDialog(
-        title = "Warning",
+        title = paste0(emo::ji('stop_sign')," Error"),
         HTML("There are Fair Shares groups in this file that do not match the Standard Setup file. 
         Please see the chart for problem Groups and member names. 
         Before rerunning this process, you either need to:<br>
@@ -382,8 +404,6 @@ server <- function(input, output) {
     }
     
   })
-
-  ####### IN STEP 1 STILL NEED TO PROVIDE DIRECTIONS ON HOW TO GET FARMIGO CSV FILE
   
   #########START ON STEP 2 / TAB 2!!!
   
