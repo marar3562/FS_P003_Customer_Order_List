@@ -21,8 +21,8 @@ library(emo)
 ## load data file
 
 ```{r}
-date = '04_14_2022'
-week = 'Week 4'
+date = '04_21_2022'
+week = 'Week 5'
 
 order_only_list = c('1 No Share - Order Only (even wk)',
                     '1 No Share - Order Only (odd wk)',
@@ -266,12 +266,12 @@ df_long_tm |>
 ############################################################
 
 # #Wednesday
-# group_a_stndrd = 'Foster, Bill [7]'
-# group_h_stndrd = 'Deem, Jessica [37]'
-# group_c_stndrd = 'Piepgrass, Erin [78]'
-# group_m_stndrd = 'Biundo (staff), Rebecca [87]'
-# group_u_stndrd = 'Brenner, Martin, Gretchen, Lisa [131]'
-# 
+# group_a_stndrd = 'Foster, Bill [8]'
+# group_h_stndrd = 'Block, Chantal [35]'
+# group_c_stndrd = 'Arnold, Brian [68]'
+# group_m_stndrd = 'Biundo (staff), Rebecca [89]'
+# group_u_stndrd = 'Karch/Slocum, Eric and Lee [142]'
+#
 # #Wednesday
 # group_a_keep = TRUE
 # group_h_keep = TRUE
@@ -282,20 +282,37 @@ df_long_tm |>
 ############################################################
 
 #Thursday
-group_a_stndrd = 'Garrett, Elizabeth/Kelly [35]'
-group_h_stndrd = 'Lai, Austin [70]'
+group_a_stndrd = 'Garrett, Elizabeth/Kelly [34]'
+group_h_stndrd = 'Clark, Ben [54]'
 group_c_stndrd = 'Kruszynski, Stacy [10]'
-group_m_stndrd = 'Craven, Star [89]'
-group_u_stndrd = NA
+group_m_stndrd = 'Kramer, Rob [81]'
+group_u_stndrd = 'Arbanas, Michael [100]'
 
 #Thursday
 group_a_keep = TRUE
 group_h_keep = TRUE
 group_c_keep = TRUE
 group_m_keep = TRUE
-group_u_keep = NA
+group_u_keep = TRUE
 
 ############################################################
+
+# #Friday
+# group_a_stndrd = NA
+# group_h_stndrd = NA
+# group_c_stndrd = NA
+# group_m_stndrd = NA
+# group_u_stndrd = NA
+# 
+# #Friday
+# group_a_keep = NA
+# group_h_keep = NA
+# group_c_keep = NA
+# group_m_keep = NA
+# group_u_keep = NA
+
+############################################################
+
 
 food_list_group_name = c('A','H','C','M','U')
 
@@ -330,7 +347,8 @@ df_stndrds = df_stndrds |>
   inner_join(sh_shares_shrt |> 
               select(group_name, food_list_group_name)
             , by = c('food_list_group_name')
-            )
+            ) |> 
+  mutate(name_long = as.character(name_long))
 
 df_stndrds_item = df_long_tm |> 
   inner_join(df_stndrds |> 
@@ -811,6 +829,7 @@ df_long_symbol_c1 = column1_print |>
             , by = c('item')
             ) |> 
   mutate(quantity = ifelse(is.na(quantity), '', as.character(quantity))
+           , item = ifelse(is.na(item), '', item)
            , item_symbol = ifelse(quantity == '', item, paste0(quantity,'x',item))
            , qty_symbol = ifelse(quantity > 1, emo::ji('plus'), '')
            , item_symbol = ifelse(is.na(symbol_text)
@@ -838,6 +857,7 @@ df_long_symbol_c2 = column2_print |>
             , by = c('item')
             ) |> 
   mutate(quantity = ifelse(is.na(quantity), '', as.character(quantity))
+           , item = ifelse(is.na(item), '', item)
            , item_symbol = ifelse(quantity == '', item, paste0(quantity,'x',item))
            , qty_symbol = ifelse(quantity > 1, emo::ji('plus'), '')
            , item_symbol = ifelse(is.na(symbol_text)
