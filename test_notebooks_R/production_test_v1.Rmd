@@ -725,7 +725,7 @@ column2_print = print_full |>
 #   ungroup() |>
 #   select(-keyword) |>
 #   distinct()
-# 
+
 # 
 # wb_e <- createWorkbook(title = 'emoji.xlsx')
 # addWorksheet(wb_e, "sheet1")
