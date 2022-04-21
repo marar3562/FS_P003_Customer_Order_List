@@ -51,6 +51,11 @@ date_df = wed_thu_dates |>
             , by = c('date')
             ) 
 
+sh_shares_shrt = sh_shares |> 
+  mutate(group_name = ifelse(is.na(group_name_short) 
+                             | group_name_short == '', group_name, group_name_short)
+  ) |>
+  select(-group_name_short)
 
 order_only_list = c('1 No Share - Order Only (even wk)',
                     '1 No Share - Order Only (odd wk)',
@@ -111,10 +116,25 @@ ui <- fluidPage(
     tabPanel("Step 2 - Standard Shares",
       sidebarLayout(
         sidebarPanel(
-          h4("Step 2a")
+          h4(textOutput("step2a")),
+          selectInput("group_2a","Select Food List Group:"
+                      , food_list_group_name
+                      , multiple = FALSE),
+          uiOutput("members_2a_rui"),
+          selectInput("keep_2a","Leave Member in Final Printout?"
+                      , c('Keep','Remove')
+                      , multiple = FALSE),
+          uiOutput("update_table_2a_rui"),
+          uiOutput("process_changes_2a_rui"),
+          h3(uiOutput("step2")),
+          h3(uiOutput("step2_"))
+          
         ),
         mainPanel(
-          tableOutput("preview2")
+          splitLayout(tableOutput("preview2")
+                      ,dataTableOutput("standard_members")),
+          uiOutput("filter_item_2a_rui"),
+          uiOutput("preview2a")
         )
       )
     )
@@ -124,7 +144,8 @@ ui <- fluidPage(
 # Define server logic required to draw a histogram
 server <- function(input, output) {
 
-  ## Step 1 (Load Data)
+  ############## Step 1 (Load Data)  ##############
+  #############################################################################################
   
   output$step1a = renderText(paste0("Step 1a ",emo::ji('black_circle')))
   output$step1b = renderText(paste0("Step 1b ",emo::ji('black_circle')))
@@ -278,12 +299,6 @@ server <- function(input, output) {
         ) |>
         select(-group_name_short)
       
-      sh_shares_shrt = sh_shares |> 
-        mutate(group_name = ifelse(is.na(group_name_short) 
-                                   | group_name_short == '', group_name, group_name_short)
-        ) |>
-        select(-group_name_short)
-      
       member_start$data = df_orig_sh |> 
         select(group_name, firstname, lastname) |> 
         distinct() |> 
@@ -425,27 +440,261 @@ server <- function(input, output) {
       )
       
       df_stndrds_vw = df_stndrds$data |> 
-        rename('Food List Group Name' = food_list_group_name
+        arrange(food_list_group_name) |> 
+        rename('Group' = food_list_group_name
                , 'Name and Id' = name_long
-               , 'Keep in Printout' = keep_remove)
+               , 'In Printout' = keep_remove)
       output$preview2 <- renderTable(df_stndrds_vw)
       
-      ##NEED A FILTER THAT SEARCHES FOR CUSTOMERS ORDERS WHEN THEY HAVE AN ITEM THAT CONTAINS...
-      ##NEED A DROP DOWN FILTER ON FOOD LIST GROUP NAME WHICH FILTERS THE SEARCH DATA FRAME
-          ##THIS WILL ALSO HELP WITH UPDATING THE DATA IN THE DATAFRAME
-      ##NEED A CUSTOMER LIST TO ADD TO THE DATAFRAME
-      ##NEED A DROP DOWN OF INCLUDE THE CUSTOMER NAME IN THE PRINT OUT OR NOT
-      ##PROVIDE WARNING WHEN MORE THAN ONE FOOD LIST GROUP DOES NOT HAVE A CUSTOMER NAME IN IT
-      ##A SECOND TABLE WILL OUTPUT ON SUCCESS THAT STATES THE MEMBERS IT FOUND MATCHING THE STANDARD SHARE
+      member_react()
+
     }
     
   })
   
-  #########START ON STEP 2 / TAB 2!!!
+  ############## Step 2 (Standard Shares)  ##############
+  #############################################################################################
   
-  ## Step 2 (Standard Shares)
+  ## Step 2 - Inputs
   
-  ### Standard Share Members
+  ### Standard Share Members - Setup / Search
+  
+  output$step2a = renderText(paste0("Step 2a ",emo::ji('black_circle')))
+   
+  member_react = reactive({
+
+    output$members_2a_rui <- renderUI({
+      member_list = df_long_tm$data |> 
+        filter(id > 0) |> 
+        inner_join(sh_shares_shrt |> 
+                     filter(food_list_group_name %in% input$group_2a) |> 
+                     select(group_name, food_list_group_name)
+                   , by = c('group_name')
+        ) |> 
+        select(name_long) |> 
+        distinct() |> 
+        arrange(name_long) |> 
+        pull()
+      
+      selectInput("member_2a","Select Food List Group:", member_list, multiple = FALSE)
+      
+    })
+
+    output$filter_item_2a_rui <- renderUI({ 
+      textInput("standard_item_search"
+                , "Search member's carts which contain the following text (not case sensitive):"
+                , value = '')
+    })
+    
+    output$preview2a <- renderUI({
+     filter_df = df_long_tm$data |>
+        filter(id > 0) |>
+        inner_join(sh_shares_shrt |>
+                     filter(food_list_group_name %in% input$group_2a) |>
+                     select(group_name, food_list_group_name)
+                   , by = c('group_name')
+        )
+     
+     if (input$standard_item_search != '') {
+       standard_share_search = filter_df |>
+         inner_join(filter_df |> 
+                      filter(str_detect(tolower(item_original), tolower(input$standard_item_search))) |> 
+                      select(name_long) |> 
+                      distinct()
+                    , by = c('name_long')
+         ) |> 
+         select('Group Name' = group_name
+                , 'Name and Id' = name_long
+                , Description = item_original)
+     } else {
+       standard_share_search = filter_df |>
+         select('Group Name' = group_name
+                , 'Name and Id' = name_long
+                , Description = item_original)
+     }
+    
+      renderDataTable(datatable(standard_share_search, options = list(dom = 'ltipr')))
+    })
+    
+    output$update_table_2a_rui <- renderUI({ 
+      actionButton("add_member_2a", "Add Member to Standard Item List")
+    })
+    output$process_changes_2a_rui <- renderUI({
+      actionButton("process_2a", "2a. Process Member List")
+    })
+  
+  }) 
+  
+  observeEvent(input$add_member_2a,{
+    df_stndrds$data = df_stndrds$data |> 
+      filter(food_list_group_name == input$group_2a) |> 
+      mutate(name_long = input$member_2a
+             , keep_remove = ifelse(input$keep_2a == 'Keep', TRUE, FALSE)
+             ) |> 
+      rbind(df_stndrds$data |> 
+              filter(food_list_group_name != input$group_2a)
+            )
+    
+    df_stndrds_update = df_stndrds$data |> 
+      arrange(food_list_group_name) |> 
+      rename('Food List Group Name' = food_list_group_name
+             , 'Name and Id' = name_long
+             , 'In Printout' = keep_remove)
+      
+    output$preview2 <- renderTable(df_stndrds_update)
+  })
+    
+  ### Standard Share Members - Action
+  df_long_def = reactiveValues(data = NULL)   #passed on as data set for steps
+  
+  observeEvent(input$process_2a,{
+    
+    df_stndrds_item = df_long_tm$data |> 
+      inner_join(df_stndrds$data |> 
+                   filter(!is.na(name_long))
+                 , by = c('name_long')
+      ) |> 
+      filter(rank == 3) 
+    
+    df_stndrds_item_grp = df_stndrds_item |>
+      select(food_list_group_name, item) |>
+      distinct()|>
+      left_join(sh_shares_shrt |>
+                  select(group_name, food_list_group_name)
+                , by = c('food_list_group_name')
+      ) |>
+      select(-food_list_group_name) |>
+      mutate(standard_item = 1)
+
+    stndrd_customers_all = df_long_tm$data |>
+      left_join(df_stndrds_item |>
+                  select(food_list_group_name, item_original) |>
+                  distinct()|>
+                  group_by(food_list_group_name) |>
+                  mutate(rank_v = rank(row_number()),
+                         stndrd_rows= max(rank_v)
+                  ) |>
+                  ungroup() |>
+                  left_join(sh_shares_shrt |>
+                              select(group_name, food_list_group_name)
+                            , by = c('food_list_group_name')
+                  ) |>
+                  select( -rank_v, -food_list_group_name)
+                , by = c('group_name', 'item_original')
+      ) |>
+      filter(rank == 3) |>
+      select(id, name_long, group_name, item_original, stndrd_rows) |>
+      distinct() |>
+      group_by(id) |>
+      mutate(rank_v = sum(ifelse(!is.na(stndrd_rows), 1, 0)),
+             customer_rows = max(rank_v),
+             rank_n_full = ifelse(!is.na(stndrd_rows), rank(row_number()), 0),
+             customer_n_full_rows = max(rank_n_full),
+             n_full_rows = sum(ifelse(rank_n_full == 0, 1, 0))
+      ) |>
+      ungroup()
+
+    stndrd_customers_full_match = stndrd_customers_all |>
+      filter(stndrd_rows == customer_rows & n_full_rows == 0) |>
+      left_join(df_stndrds$data |>
+                  filter(!is.na(name_long))
+                , by = c('name_long')
+      ) |>
+      mutate(keep_remove = ifelse(is.na(keep_remove), TRUE, keep_remove)) |>
+      select(id, keep_remove) |>
+      distinct()
+
+    stndrd_customers_match_w_extras = stndrd_customers_all |>
+      filter(stndrd_rows == (customer_n_full_rows - n_full_rows) & n_full_rows > 0) |>
+      select(id) |>
+      distinct() |>
+      left_join(stndrd_customers_all |>
+                  filter(is.na(stndrd_rows)) |>
+                  select(id, item_original)
+                , by = c('id')
+      ) |>
+      mutate(keep_remove =  TRUE) |>
+      select(id, item_original, keep_remove) |>
+      distinct()
+    
+    
+    df_long_def$data = df_long_tm$data |> #bring in stndrd trading member names
+      filter(id %in% (stndrd_customers_full_match |> filter(keep_remove == TRUE))$id
+             | id %in% (stndrd_customers_match_w_extras |> filter(keep_remove == TRUE))$id
+      ) |>
+      filter(rank <= 2) |>
+      select(-item_original) |>
+      rbind(df_long_tm$data |>  #bring in stndrd trading item row
+              filter(id %in% (stndrd_customers_full_match |> filter(keep_remove == TRUE))$id
+                     | id %in% (stndrd_customers_match_w_extras |> filter(keep_remove == TRUE))$id
+              ) |>
+              filter(rank >= 3) |>
+              mutate(quantity = NA,
+                     item = ifelse(rank == 3, 'STANDARD SHARE ITEMS', item)
+              ) |>
+              select(-item_original) |>
+              distinct()
+      ) |>
+      rbind(df_long_tm$data |>  #bring in all members not in stndrd member list
+              select(-item_original) |>
+              filter(!id %in% (stndrd_customers_full_match |> filter(keep_remove == TRUE))$id
+                     & !id %in% (stndrd_customers_match_w_extras |> filter(keep_remove == TRUE))$id
+              )
+      ) |>
+      rbind(df_long_tm$data |>  #bring in items that have a stndrd item match but have extra sales
+              inner_join(stndrd_customers_match_w_extras |>
+                           select(-keep_remove)
+                         , by = c('id','item_original')
+              ) |>
+              select(-item_original)
+      ) |>
+      arrange(group_name, description, time, lastname, firstname, id, rank) |>
+      left_join(df_stndrds_item_grp
+                , by = c('item','group_name'))
+
+    standard_summary = df_long_def$data |>
+      inner_join(stndrd_customers_match_w_extras |>
+                   select(-item_original) |>
+                   mutate(extras = TRUE) |>
+                   distinct() |>
+                   rbind(stndrd_customers_full_match |>
+                           mutate(extras = FALSE))
+                 , by = c('id')
+      ) |>
+      select('Group Name' = group_name
+             , 'Name and Id' = name_long
+             , 'In Printout' = keep_remove
+             , 'Extra Items' = extras) |>
+      distinct()
+
+    output$standard_members <- renderDataTable(datatable(standard_summary
+                                                         , options = list(dom = 'ltip'
+                                                                          , pageLength = 5
+                                                                          , lengthMenu = c(5, 10, 15, 20) 
+                                                                          )
+                                                         ))
+    
+    output$step2a = renderText(paste0("Step 2a ",emo::ji('heavy_check_mark')))
+    
+    output$step2 <- renderUI(
+      renderText(paste0(emo::ji('heavy_check_mark'), " Step 2 is Complete! ",emo::ji('party_popper')))
+    )
+    output$step2_ <- renderUI(
+      renderText(paste0(emo::ji('index_pointing_up'),
+                        emo::ji('index_pointing_up'),
+                        "   GO TO STEP 3 TAB! "
+                        ,emo::ji('index_pointing_up')
+                        ,emo::ji('index_pointing_up')))
+    )
+    
+    
+  })
+  
+  ##PROVIDE WARNING WHEN MORE THAN ONE FOOD LIST GROUP DOES NOT HAVE A CUSTOMER NAME IN IT
+  ##NEED TO PLAY WITH THE FORMATTING AND POTENTIAL NEW EMOJIS
+    ## TAB OVER THE FILTERS AND ADD MEMBER BUTTONS
+    ## ADD AN EMOJI TO THE ADD MEMBER ACTION BUTTON
+    ## PLAY WITH MAIN PAGE FORMATTING SO ALL CHARTS AND FILTER LOOK NICE
   
   
   
