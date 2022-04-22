@@ -700,31 +700,31 @@ column2_print = print_full |>
 ## adding in symbols or emojis
 
 ```{r}
-# test = data.frame(emoji::emoji_name)
-# test = test |> rownames_to_column()
-# colnames(test) = c('name', 'emoji')
-# 
-# keywords <- emo::ji_keyword
-# emojis <- purrr::map_chr(keywords, function(x) paste0(x, collapse = ","))
-# test2 = data.frame(keywords = names(emojis)
-#                    , emojis)
-# colnames(test2) = c('keyword', 'name_list')
-# test2_long = test2 |>
-#   mutate(name = strsplit(as.character(name_list), ",")) |>
-#   unnest(name) |>
-#   select(keyword, name) |>
-#   distinct()
-# 
-# test_comb = test |>
-#   left_join(test2_long
-#             , by = c('name')
-#             ) |>
-#   arrange(name, keyword) |>
-#   group_by(name, emoji) |>
-#   mutate(keyword_list = paste0(keyword, collapse = ",")) |>
-#   ungroup() |>
-#   select(-keyword) |>
-#   distinct()
+test = data.frame(emoji::emoji_name)
+test = test |> rownames_to_column()
+colnames(test) = c('name', 'emoji')
+
+keywords <- emo::ji_keyword
+emojis <- purrr::map_chr(keywords, function(x) paste0(x, collapse = ","))
+test2 = data.frame(keywords = names(emojis)
+                   , emojis)
+colnames(test2) = c('keyword', 'name_list')
+test2_long = test2 |>
+  mutate(name = strsplit(as.character(name_list), ",")) |>
+  unnest(name) |>
+  select(keyword, name) |>
+  distinct()
+
+test_comb = test |>
+  left_join(test2_long
+            , by = c('name')
+            ) |>
+  arrange(name, keyword) |>
+  group_by(name, emoji) |>
+  mutate(keyword_list = paste0(keyword, collapse = ",")) |>
+  ungroup() |>
+  select(-keyword) |>
+  distinct()
 
 # 
 # wb_e <- createWorkbook(title = 'emoji.xlsx')

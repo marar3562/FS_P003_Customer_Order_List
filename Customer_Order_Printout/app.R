@@ -1,5 +1,5 @@
 #
-# This is the final Dashboad that Fair Shares employees will use to create the customer order printouts
+# This is the final Dashboard that Fair Shares employees will use to create the customer order printouts
 #
 
 
@@ -22,7 +22,7 @@ sh_shares = range_read('1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ'
 sh_delete = range_read('1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ'
                        ,sheet = 'delete'
                        ,col_types = 'c'
-)
+) |> arrange(item)
 sr = range_read("1xs8TAMrSsJuL_gou4y0DBH3IkaTH0eBn_pdboCGWFTI"
                 ,sheet = 'share_rotation'
                 ,col_types = 'Diciccc'
@@ -75,6 +75,8 @@ group_h_keep = NA
 group_c_keep = NA
 group_m_keep = NA
 group_u_keep = NA
+
+pot_plant_text = 'Pot Plant'
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -137,6 +139,36 @@ ui <- fluidPage(
           uiOutput("preview2a")
         )
       )
+    ),
+    tabPanel("Step 3 - Delete Items",
+             sidebarLayout(
+               sidebarPanel(
+                 h4(textOutput("step3a")),
+                 uiOutput("delete_gs_list_rui"),
+                 actionButton("remove_perm_item","Remove Permanently Selected Item"),
+                 uiOutput("new_item_3a_rui"),
+                 uiOutput("new_item_temp_3a_rui"),
+                 uiOutput("new_item_perm_3a_rui"),
+                 uiOutput("remove_item_temp_select_3a_rui"),
+                 uiOutput("remove_item_temp_3a_rui"),
+                 uiOutput("process_3a_rui"),
+                 h3(uiOutput("step3")),
+                 h3(uiOutput("step3_"))
+                 
+               ),
+               mainPanel(
+                 splitLayout(dataTableOutput("delete_list_view")
+                             ,dataTableOutput("delete_list_temp_view")
+                             ),
+                 splitLayout(dataTableOutput("delete_list_table")
+                             ,dataTableOutput("delete_list_temp_table")
+                             ),
+                 splitLayout(dataTableOutput("delete_plant_table")
+                             ,dataTableOutput("order_only_table")
+                             ),
+                 dataTableOutput("preview3")
+               )
+             )
     )
     )
 )
@@ -146,12 +178,15 @@ server <- function(input, output) {
 
   ############## Step 1 (Load Data)  ##############
   #############################################################################################
+  ###### ENHANCEMENT LIST FOR STEP:
+    ## Play with Side bar % if other steps also change this to fit charts better
   
   output$step1a = renderText(paste0("Step 1a ",emo::ji('black_circle')))
   output$step1b = renderText(paste0("Step 1b ",emo::ji('black_circle')))
   output$step1c = renderText(paste0("Step 1c ",emo::ji('black_circle')))
   
   ### Load Data
+  #####################################################################
   observeEvent(input$p_file,{
     if(input$date_value %in% wed_thu_dates$date_all) {
       date_df_fltr = date_df |> 
@@ -212,7 +247,9 @@ server <- function(input, output) {
                                                 , name_long = c(group_a_stndrd, group_h_stndrd, group_c_stndrd
                                                                 , group_m_stndrd, group_u_stndrd)
                                                 , keep_remove = c(group_a_keep, group_h_keep, group_c_keep
-                                                                  , group_m_keep, group_u_keep))
+                                                                  , group_m_keep, group_u_keep)) |> 
+                                mutate(name_long = as.character(name_long)
+                                       ,keep_remove = as.logical(keep_remove))
   )
   
   
@@ -267,6 +304,7 @@ server <- function(input, output) {
       mutate(id = row_number())
     
     ## Group Check
+    #####################################################################
     
     group_check = df_orig |>
       mutate(check = ifelse(group_name %in% (sh_shares)$group_name, TRUE, FALSE)) |>
@@ -288,6 +326,8 @@ server <- function(input, output) {
     } else {
       
       #### Member Count - Start
+      #####################################################################
+      
       df_orig_sh = df_orig  |>  
         left_join(sh_shares |> #bringing in short group name
                     select(group_name, group_name_short) |> 
@@ -312,6 +352,7 @@ server <- function(input, output) {
       output$member_start_tbl <- renderTable(member_start_view)
       
       #### Make data long
+      #####################################################################
       
       df_orig_long = df_orig_sh  |> 
         mutate(order = strsplit(as.character(order), ",")) |>
@@ -367,6 +408,7 @@ server <- function(input, output) {
         arrange(group_name, lastname, firstname, id, rank) 
       
       #### Pickup Times found
+      #####################################################################
       
       pickup_time = df_orig_long |> 
         filter(rank == 2) |> 
@@ -454,10 +496,17 @@ server <- function(input, output) {
   
   ############## Step 2 (Standard Shares)  ##############
   #############################################################################################
+  ###### ENHANCEMENT LIST FOR STEP:
+    ##NEED TO PLAY WITH THE FORMATTING AND POTENTIAL NEW EMOJIS
+    ## TAB OVER THE FILTERS AND ADD MEMBER BUTTONS
+    ## ADD AN EMOJI TO THE ADD MEMBER ACTION BUTTON
+    ## PLAY WITH MAIN PAGE FORMATTING SO ALL CHARTS AND FILTER LOOK NICE
+  
   
   ## Step 2 - Inputs
   
   ### Standard Share Members - Setup / Search
+  #####################################################################
   
   output$step2a = renderText(paste0("Step 2a ",emo::ji('black_circle')))
    
@@ -525,6 +574,9 @@ server <- function(input, output) {
   
   }) 
   
+  ### Standard Share Members - Adding members to the dataframe
+  #####################################################################
+  
   observeEvent(input$add_member_2a,{
     df_stndrds$data = df_stndrds$data |> 
       filter(food_list_group_name == input$group_2a) |> 
@@ -537,18 +589,34 @@ server <- function(input, output) {
     
     df_stndrds_update = df_stndrds$data |> 
       arrange(food_list_group_name) |> 
-      rename('Food List Group Name' = food_list_group_name
+      rename('Group' = food_list_group_name
              , 'Name and Id' = name_long
              , 'In Printout' = keep_remove)
       
     output$preview2 <- renderTable(df_stndrds_update)
   })
     
-  ### Standard Share Members - Action
+  ### Standard Share Members - Action (Process results)
+  #####################################################################
+  
   df_long_def = reactiveValues(data = NULL)   #passed on as data set for steps
   
   observeEvent(input$process_2a,{
     
+    if (dim(df_stndrds$data |> filter(is.na(name_long)))[1] > 0 ) {
+      showModal(modalDialog(
+        title = paste0(emo::ji('warning')," Warning"),
+        HTML("There is at least one group that does not have a member selected for the standard share item list.<br> 
+        This list will be used to reduce customer orders who have all standard share items to a single line in the printout sheet. <br>
+        You can either:<br>
+        1. Leave this if its expected. There may not be a member that has all standard share items with no additions for the week.<br>
+        2. Add a member to the item standard share list above to reduce printout results.
+        "),
+        easyClose = TRUE
+      ))
+    } 
+    
+    #standard share item list
     df_stndrds_item = df_long_tm$data |> 
       inner_join(df_stndrds$data |> 
                    filter(!is.na(name_long))
@@ -556,6 +624,7 @@ server <- function(input, output) {
       ) |> 
       filter(rank == 3) 
     
+    #bringing in the Food List Group Name
     df_stndrds_item_grp = df_stndrds_item |>
       select(food_list_group_name, item) |>
       distinct()|>
@@ -594,6 +663,7 @@ server <- function(input, output) {
       ) |>
       ungroup()
 
+    #100% match to the standard share list (Pickup Time does not count)
     stndrd_customers_full_match = stndrd_customers_all |>
       filter(stndrd_rows == customer_rows & n_full_rows == 0) |>
       left_join(df_stndrds$data |>
@@ -603,7 +673,8 @@ server <- function(input, output) {
       mutate(keep_remove = ifelse(is.na(keep_remove), TRUE, keep_remove)) |>
       select(id, keep_remove) |>
       distinct()
-
+    
+    #Some members have the standard share but with additional items on top (milk, etc.)
     stndrd_customers_match_w_extras = stndrd_customers_all |>
       filter(stndrd_rows == (customer_n_full_rows - n_full_rows) & n_full_rows > 0) |>
       select(id) |>
@@ -617,7 +688,7 @@ server <- function(input, output) {
       select(id, item_original, keep_remove) |>
       distinct()
     
-    
+    #combine all data to output to be used in next step
     df_long_def$data = df_long_tm$data |> #bring in stndrd trading member names
       filter(id %in% (stndrd_customers_full_match |> filter(keep_remove == TRUE))$id
              | id %in% (stndrd_customers_match_w_extras |> filter(keep_remove == TRUE))$id
@@ -686,27 +757,353 @@ server <- function(input, output) {
                         ,emo::ji('index_pointing_up')
                         ,emo::ji('index_pointing_up')))
     )
-    
-    
+
+    #all below are used in Step 3
+    output$new_item_3a_rui <- renderUI(
+      selectInput("new_item_3a", "Select Item to Add to Delete List:"
+                  ,c(NA, df_long_def$data |> 
+                       filter(rank == 3) |> 
+                       filter(!str_detect(item, pot_plant_text)) |> 
+                       select(item) |> 
+                       distinct() |> 
+                       pull())
+                  )
+    )
+
+    output$new_item_temp_3a_rui <- renderUI(
+      actionButton("add_temp_item","Add Item Temporarily")
+    )
+
+    output$new_item_perm_3a_rui <- renderUI(
+      actionButton("add_perm_item","Add Item Permanently")
+    )
+
+    output$process_3a_rui <- renderUI(
+      actionButton("process_3a","Step 3a. Process Delete List")
+    )
   })
   
-  ##PROVIDE WARNING WHEN MORE THAN ONE FOOD LIST GROUP DOES NOT HAVE A CUSTOMER NAME IN IT
-  ##NEED TO PLAY WITH THE FORMATTING AND POTENTIAL NEW EMOJIS
-    ## TAB OVER THE FILTERS AND ADD MEMBER BUTTONS
-    ## ADD AN EMOJI TO THE ADD MEMBER ACTION BUTTON
-    ## PLAY WITH MAIN PAGE FORMATTING SO ALL CHARTS AND FILTER LOOK NICE
+  ############## Step 3 (Delete Items)  ##############
+  #############################################################################################
+  ###### ENHANCEMENT LIST FOR STEP:
+  
+  output$step3a = renderText(paste0("Step 3a ",emo::ji('black_circle')))
+  
+  delete_list = reactiveValues(data = sh_delete$item)
+  delete_df = reactiveValues(data = sh_delete)
+  df_long_del = reactiveValues(data = NA)
+  
+  output$delete_gs_list_rui <- renderUI({
+    
+    selectInput("delete_list_2a","Select Permanent Item to Remove:"
+                                      , c(NA, delete_list$data)
+                                      , multiple = FALSE)
+  })
+  
+  output$delete_list_view = renderDataTable(datatable(delete_df$data
+                                                      , options = list(dom = 'ltip'
+                                                                       , pageLength = 5
+                                                                      , lengthMenu = c(5, 10, 15, 20) 
+                                                                      )))
+  
+  ### Delete - Remove A Permament Item from Google Sheets List
+  #####################################################################
+  observeEvent(input$remove_perm_item,{
+    
+    if (input$delete_list_2a == 'NA') {
+      showModal(modalDialog(
+        title = paste0(emo::ji('warning')," Warning"),
+        HTML("A non-NA item needs to be selected for this to remove an item permanently.
+        "),
+        easyClose = TRUE
+      ))
+    } else {
+      range_delete('1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ'
+                   , sheet = 'delete'
+                   , range = "A:A")
+      range_write('1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ'
+                 , data = delete_df$data |> filter(!is.na(item)) |> filter(item != input$delete_list_2a) |> distinct()
+                 , sheet = 'delete'
+                 , col_names = TRUE
+                 , range = "A:A"
+      ) 
+      Sys.sleep(2)
+      sh_delete_new = range_read('1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ'
+                             ,sheet = 'delete'
+                             ,col_types = 'c'
+      ) |> arrange(item)
+      
+      output$delete_list_view = renderDataTable(datatable(sh_delete_new
+                                                          , options = list(dom = 'ltip'
+                                                                           , pageLength = 5
+                                                                           , lengthMenu = c(5, 10, 15, 20) 
+                                                                           )))
+      
+      output$delete_gs_list_rui <- renderUI({
+        
+        selectInput("delete_list_2a","Select Permanent Item to Remove:"
+                    , c(NA, sh_delete_new$item)
+                    , multiple = FALSE)
+      })
+      delete_list$data = sh_delete_new$item
+      delete_df$data = sh_delete_new
+    }
+    })
+  
+  ### Delete - Add/Remove a Temporary Item to List
+  #####################################################################
+  delete_temp = reactiveValues(data = data.frame(item = c(NA)))
+  
+  observeEvent(input$add_temp_item,{
+    
+    if (input$new_item_3a == 'NA') {
+      showModal(modalDialog(
+        title = paste0(emo::ji('warning')," Warning"),
+        HTML("A non-NA item needs to be selected for this to add an item temporarily.
+        "),
+        easyClose = TRUE
+      ))
+    } else {
+      delete_temp$data = delete_temp$data |> 
+        rbind(data.frame(item = input$new_item_3a)) |> 
+        filter(!is.na(item))
+      
+      output$delete_list_temp_view = renderDataTable(datatable(delete_temp$data
+                                                               , options = list(dom = 'ltip'
+                                                                                , pageLength = 5
+                                                                                , lengthMenu = c(5, 10, 15, 20) 
+                                                              )))
+      
+      output$remove_item_temp_select_3a_rui <- renderUI(
+        selectInput("remove_temp_item_select", "Select Temporary Item to Remove:"
+                    ,c(NA, delete_temp$data |> 
+                         select(item) |> 
+                         distinct() |> 
+                         pull())
+        )
+      )
+      
+      output$remove_item_temp_3a_rui <- renderUI(
+        actionButton("remove_temp_item","Remove Item Temporarily")
+      )
+      
+      
+    }
+  })
+  
+  observeEvent(input$remove_temp_item,{
+    
+    if (input$remove_temp_item_select == 'NA') {
+      showModal(modalDialog(
+        title = paste0(emo::ji('warning')," Warning"),
+        HTML("A non-NA item needs to be selected for this to remove an item.
+        "),
+        easyClose = TRUE
+      ))
+    } else {
+      delete_temp$data = delete_temp$data |> 
+        filter(!is.na(item)) |> 
+        filter(item != input$remove_temp_item_select)
+      
+      output$delete_list_temp_view = renderDataTable(datatable(delete_temp$data
+                                                               , options = list(dom = 'ltip'
+                                                                                , pageLength = 5
+                                                                                , lengthMenu = c(5, 10, 15, 20) 
+                                                                                )))
+      
+      output$remove_item_temp_select_3a_rui <- renderUI(
+        selectInput("remove_temp_item_select", "Select Temporary Item to Remove:"
+                    ,c(NA, delete_temp$data |> 
+                         select(item) |> 
+                         distinct() |> 
+                         pull()
+                       )
+        )
+      )
+
+    }
+  })
+  
+  ### Delete - Add a Permanent Item to Google Sheets List
+  #####################################################################
+  observeEvent(input$add_perm_item,{
+    
+    if (input$new_item_3a == 'NA') {
+      showModal(modalDialog(
+        title = paste0(emo::ji('warning')," Warning"),
+        HTML("A non-NA item needs to be selected for this to add an item permanently.
+        "),
+        easyClose = TRUE
+      ))
+    } else {
+      range_write('1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ'
+                  , data = delete_df$data |> 
+                            rbind(data.frame(item = input$new_item_3a)) |> 
+                            distinct()
+                  , sheet = 'delete'
+                  , col_names = TRUE
+                  , range = "A:A"
+      ) 
+      # Sys.sleep(2)
+      sh_delete_new = range_read('1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ'
+                                 ,sheet = 'delete'
+                                 ,col_types = 'c'
+      ) |> arrange(item)
+      
+      output$delete_list_view = renderDataTable(datatable(sh_delete_new
+                                                          , options = list(dom = 'ltip'
+                                                                           , pageLength = 5
+                                                                           , lengthMenu = c(5, 10, 15, 20) 
+                                                                           )))
+      
+      output$delete_gs_list_rui <- renderUI({
+        
+        selectInput("delete_list_2a","Select Permanent Item to Remove:"
+                    , c(NA, sh_delete_new$item)
+                    , multiple = FALSE)
+      })
+      delete_list$data = sh_delete_new$item
+      delete_df$data = sh_delete_new
+      
+    }
+  })
+  
+  ### Delete - Process Results
+  #####################################################################
+  observeEvent(input$process_3a,{
+    
+    #permanent delete list
+    delete_list_items = df_long_def$data |>
+      filter(item %in% (delete_df$data |>
+                          filter(!is.na(item)) |> 
+                          select(item) |>
+                          distinct() |>
+                          pull())
+             ) |>
+      group_by(item) |>
+      summarise(Count = n())
+
+    output$delete_list_table = renderDataTable(datatable(delete_list_items
+                                                         , options = list(dom = 'ltip'
+                                                                          , pageLength = 5
+                                                                          , lengthMenu = c(5, 10, 15, 20) 
+                                                                          )))
+
+    #temporary delete list
+    delete_list_temp_items = df_long_def$data |>
+      filter(item %in% (delete_temp$data |>
+                          filter(!is.na(item)) |> 
+                          select(item) |>
+                          distinct() |>
+                          pull())
+             ) |>
+      group_by(item) |>
+      summarise(Count = n())
+
+    output$delete_list_temp_table = renderDataTable(datatable(delete_list_temp_items
+                                                              , options = list(dom = 'ltip'
+                                                                               , pageLength = 5
+                                                                               , lengthMenu = c(5, 10, 15, 20) 
+                                                                               )))
+
+    #pot plant to remove
+    delete_plants = df_long_def$data |>
+      filter(str_detect(item, 'Pot Plant')) |>
+      # filter(item %in% delete_list_plants) |>
+      group_by(item) |>
+      summarise(Count = n())
+
+    output$delete_plant_table = renderDataTable(datatable(delete_plants
+                                                          , options = list(dom = 'ltip'
+                                                                           , pageLength = 5
+                                                                           , lengthMenu = c(5, 10, 15, 20) 
+                                                                           )))
+
+    #Order Only members removed (if necessary)
+    delete_no_share = df_long_def$data |>
+      inner_join(df_long_def$data |>
+                   filter(item %in% order_only_list
+                   ) |>
+                   select(id) |>
+                   distinct()
+                 , by = c('id')
+      ) |>
+      filter(rank == 3) |>
+      group_by(id) |>
+      mutate(rank_v = rank(row_number()),
+             rows= max(rank_v)
+      ) |>
+      ungroup() |>
+      filter(rows == 1) |>
+      select(id) |>
+      distinct()
+
+    output$order_only_table = renderDataTable(datatable(df_long_def$data |>
+                                                          filter(id %in% delete_no_share$id) |>
+                                                          select('Group Name' = group_name
+                                                                 , 'Name and Id' = name_long
+                                                                 , 'Quanity' = quantity
+                                                                 , 'Description' = item
+                                                                 ) |>
+                                                          distinct()
+                                                        , options = list(dom = 'ltip'
+                                                                         , pageLength = 5
+                                                                         , lengthMenu = c(5, 10, 15, 20) 
+                                                          )))
+
+    #final data set
+    df_long_del$data = df_long_def$data |>
+      filter(!item %in% (delete_df$data |>
+                           filter(!is.na(item)) |> 
+                           select(item) |>
+                           distinct() |>
+                           pull())
+             ) |>
+      filter(!item %in% (delete_temp$data |>
+                           filter(!is.na(item)) |> 
+                           select(item) |>
+                           distinct() |>
+                           pull())
+             ) |>
+      filter(!id %in% delete_no_share$id) |>
+      filter(!item %in% delete_plants$item)
+
+    output$preview3 = renderDataTable(datatable(df_long_del$data |>
+                                                  select('Group Name' = group_name
+                                                         , 'Name and Id' = name_long
+                                                         , 'Quanity' = quantity
+                                                         , 'Description' = item
+                                                  )
+                                                , options = list(dom = 'ltip'
+                                                                 , pageLength = 5
+                                                                 , lengthMenu = c(5, 10, 15, 20) 
+                                                               )))
+    
+    #### Plant Print Out (Optional Download Button)
+    ##################################################################### 
+    
+    
+    
+    
+    
+    
+    output$step3a = renderText(paste0("Step 3a ",emo::ji('heavy_check_mark')))
+    
+    })
+  
+  ##NEED TO CREATE DOWNLOAD BUTTON FOR POT PLANT PRINTOUT IF DATAFRAME IS POPULATED 
+  ##NEED TO ADD AN ACTION BUTTON (3b) THAT STATES TO CHECK THE RESULTS FROM DELETING RECORDS. 
+    ##IF GOOD (AKA THEY CLICK THE BUTTON) THEN CREATE TWO COLUMN OUTPUT AND UPDATE THE PREVIEW3 TABLE
+    ##THEN UPDATE THE BUTTONS TO ALL SHOW AS SUCCESSFUL AND GO TO STEP 4
   
   
+
   
-  ## Step 3 (Delete Items)
-  
-  ### Delete List
-  
-  ### Actions
-  
-  #### Plant Print Out (Optional)
   
   #### Optimize orders to two columns
+  #####################################################################
+  
+  
   
   ## Step 4 (Item Styling)
   
