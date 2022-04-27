@@ -21,8 +21,8 @@ library(emo)
 ## load data file
 
 ```{r}
-date = '04_21_2022'
-week = 'Week 5'
+date = '04_29_2022'
+week = 'Week 6'
 
 order_only_list = c('1 No Share - Order Only (even wk)',
                     '1 No Share - Order Only (odd wk)',
@@ -267,11 +267,11 @@ df_long_tm |>
 
 # #Wednesday
 # group_a_stndrd = 'Foster, Bill [8]'
-# group_h_stndrd = 'Block, Chantal [35]'
-# group_c_stndrd = 'Arnold, Brian [68]'
-# group_m_stndrd = 'Biundo (staff), Rebecca [89]'
-# group_u_stndrd = 'Karch/Slocum, Eric and Lee [142]'
-#
+# group_h_stndrd = 'Sabo, Stephanie [54]'
+# group_c_stndrd = 'Maloney, Erin [73]'
+# group_m_stndrd = 'Crooks, Carol [91]' #Biundo (staff), Rebecca
+# group_u_stndrd = 'DeLaney, Jennifer [135]' #Karch/Slocum, Eric and Lee
+# 
 # #Wednesday
 # group_a_keep = TRUE
 # group_h_keep = TRUE
@@ -281,35 +281,35 @@ df_long_tm |>
 
 ############################################################
 
-#Thursday
-group_a_stndrd = 'Garrett, Elizabeth/Kelly [34]'
-group_h_stndrd = 'Clark, Ben [54]'
-group_c_stndrd = 'Kruszynski, Stacy [10]'
-group_m_stndrd = 'Kramer, Rob [81]'
-group_u_stndrd = 'Arbanas, Michael [100]'
-
-#Thursday
-group_a_keep = TRUE
-group_h_keep = TRUE
-group_c_keep = TRUE
-group_m_keep = TRUE
-group_u_keep = TRUE
+# #Thursday
+# group_a_stndrd = 'Garrett, Elizabeth/Kelly [33]'
+# group_h_stndrd = 'Kinman, Tricia [61]'
+# group_c_stndrd = 'Kruszynski, Stacy [10]'
+# group_m_stndrd = 'Karr, Mary [87]'
+# group_u_stndrd = NA
+# 
+# #Thursday
+# group_a_keep = TRUE
+# group_h_keep = TRUE
+# group_c_keep = TRUE
+# group_m_keep = TRUE
+# group_u_keep = NA
 
 ############################################################
 
-# #Friday
-# group_a_stndrd = NA
-# group_h_stndrd = NA
-# group_c_stndrd = NA
-# group_m_stndrd = NA
-# group_u_stndrd = NA
-# 
-# #Friday
-# group_a_keep = NA
-# group_h_keep = NA
-# group_c_keep = NA
-# group_m_keep = NA
-# group_u_keep = NA
+#Friday
+group_a_stndrd = NA
+group_h_stndrd = NA
+group_c_stndrd = NA
+group_m_stndrd = 'Przyzycki, Lori [4]'
+group_u_stndrd = NA
+
+#Friday
+group_a_keep = NA
+group_h_keep = NA
+group_c_keep = NA
+group_m_keep = TRUE
+group_u_keep = NA
 
 ############################################################
 
@@ -902,7 +902,7 @@ wb <- createWorkbook(title = 'TestFile')
 addWorksheet(wb, "testing")
 writeData(wb, "testing", write_df, colNames = FALSE)
 
-setColWidths(wb, "testing", cols = 1:2, widths = 40)
+setColWidths(wb, "testing", cols = 1:2, widths = 39)
 modifyBaseFont(wb, fontSize = 12, fontColour = "black", fontName = "Calibri")
 
 ## Coloring each Group and Member names based on Google Sheet 
@@ -1081,6 +1081,23 @@ openXL(wb)
 
 saveWorkbook(wb, paste0('print_',date,'.xlsx'), overwrite = TRUE)
 # saveWorkbook(wb, "TestFile.xlsx", overwrite = TRUE)
+
+### PDF and PNG attempts with little room for success
+# library(gridExtra) 
+# pdf("test.pdf", height=11, width=10, onefile=FALSE)
+# grid.table(write_df)
+# dev.off()
+# 
+# png("test.png", height = 1200, width = 600)
+# grid.table(write_df)
+# dev.off()
+
+
+## Uploading file to Googledrive looks VERY promising
+# library(googledrive)
+# drive_auth(email = '')
+# (test_ss <- drive_upload(paste0(getwd(),'/','print_',date,'.xlsx'), type = "spreadsheet"))
+# drive_browse(test_ss)
 ```
 
 ## Member Count - End
