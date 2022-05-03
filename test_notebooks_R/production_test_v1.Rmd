@@ -21,7 +21,7 @@ library(emo)
 ## load data file
 
 ```{r}
-date = '04_29_2022'
+date = '04_27_2022'
 week = 'Week 6'
 
 order_only_list = c('1 No Share - Order Only (even wk)',
@@ -265,19 +265,19 @@ df_long_tm |>
 
 ############################################################
 
-# #Wednesday
-# group_a_stndrd = 'Foster, Bill [8]'
-# group_h_stndrd = 'Sabo, Stephanie [54]'
-# group_c_stndrd = 'Maloney, Erin [73]'
-# group_m_stndrd = 'Crooks, Carol [91]' #Biundo (staff), Rebecca
-# group_u_stndrd = 'DeLaney, Jennifer [135]' #Karch/Slocum, Eric and Lee
-# 
-# #Wednesday
-# group_a_keep = TRUE
-# group_h_keep = TRUE
-# group_c_keep = TRUE
-# group_m_keep = TRUE
-# group_u_keep = TRUE
+#Wednesday
+group_a_stndrd = 'Foster, Bill [8]'
+group_h_stndrd = 'Sabo, Stephanie [54]'
+group_c_stndrd = 'Maloney, Erin [73]'
+group_m_stndrd = 'Crooks, Carol [91]' #Biundo (staff), Rebecca
+group_u_stndrd = 'DeLaney, Jennifer [135]' #Karch/Slocum, Eric and Lee
+
+#Wednesday
+group_a_keep = TRUE
+group_h_keep = TRUE
+group_c_keep = TRUE
+group_m_keep = TRUE
+group_u_keep = TRUE
 
 ############################################################
 
@@ -297,19 +297,19 @@ df_long_tm |>
 
 ############################################################
 
-#Friday
-group_a_stndrd = NA
-group_h_stndrd = NA
-group_c_stndrd = NA
-group_m_stndrd = 'Przyzycki, Lori [4]'
-group_u_stndrd = NA
-
-#Friday
-group_a_keep = NA
-group_h_keep = NA
-group_c_keep = NA
-group_m_keep = TRUE
-group_u_keep = NA
+# #Friday
+# group_a_stndrd = NA
+# group_h_stndrd = NA
+# group_c_stndrd = NA
+# group_m_stndrd = 'Przyzycki, Lori [4]'
+# group_u_stndrd = NA
+# 
+# #Friday
+# group_a_keep = NA
+# group_h_keep = NA
+# group_c_keep = NA
+# group_m_keep = TRUE
+# group_u_keep = NA
 
 ############################################################
 
@@ -562,6 +562,8 @@ column1 = as.data.frame(NULL)
 column2 = as.data.frame(NULL)
 row_max = 45 ##one minus the max amount of rows per sheet in print process
 g_name = NULL
+
+# test <- function(){
 for (g in 1:dim(group_names)[1]) {
   g_name = group_names$group_name[g]
   opt_grouped = opt_group |> 
@@ -571,7 +573,9 @@ for (g in 1:dim(group_names)[1]) {
   c2_rows = 0
   c1_cust = 0
   c2_cust = 0
+  name = NA
   for (i in 1:dim(opt_grouped)[1]) {
+    name = opt_grouped[i,]
     if (dim(column1)[1] == 0 & dim(column2)[1] == 0 & i == 1) {
       column1 = column1 %>% 
         rbind(opt_grouped[i,] %>% 
@@ -600,6 +604,14 @@ for (g in 1:dim(group_names)[1]) {
               )
         c2_rows = c2_rows + column2$n[dim(column2)[1]]
         c2_cust = c2_cust + 1
+      }  else if (floor((opt_grouped$n[i] + c1_rows)/row_max) == 0 & floor((opt_grouped$n[i] + c2_rows)/row_max) > 0) {
+        column1 = column1 %>%
+          rbind(opt_grouped[i,] %>%
+                mutate(page_n = page
+                       )
+              )
+        c1_rows = c1_rows + column1$n[dim(column1)[1]]
+        c1_cust = c1_cust + 1
       } else if (c1_cust > c2_cust) {
         column2 = column2 %>% 
           rbind(opt_grouped[i,] %>% 
@@ -621,6 +633,9 @@ for (g in 1:dim(group_names)[1]) {
     # print(opt_grouped$n[i])
   }
 }
+# }
+# 
+# debug(test)
 
 group_name_additions_c1 = df_long_del %>% 
   ungroup() |> 
@@ -684,6 +699,16 @@ column2_w_groups = group_name_additions_c2 |>
   select(-group_name_col) |> 
   group_by(group_name, page_n) |> 
   mutate(row_n = rank(row_number()))
+
+stopifnot(column1_w_groups |> 
+    filter(row_n > row_max+1) |> 
+    summarise(n=n()) |> 
+    pull() == 0)
+
+stopifnot(column2_w_groups |> 
+    filter(row_n > row_max+1) |> 
+    summarise(n=n()) |> 
+    pull() == 0)
 
 column1_print = print_full |> 
   left_join(column1_w_groups
