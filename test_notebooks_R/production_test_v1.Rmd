@@ -21,8 +21,8 @@ library(emo)
 ## load data file
 
 ```{r}
-date = '04_27_2022'
-week = 'Week 6'
+date = '05_06_2022'
+week = 'Week 7'
 
 order_only_list = c('1 No Share - Order Only (even wk)',
                     '1 No Share - Order Only (odd wk)',
@@ -265,51 +265,51 @@ df_long_tm |>
 
 ############################################################
 
-#Wednesday
-group_a_stndrd = 'Foster, Bill [8]'
-group_h_stndrd = 'Sabo, Stephanie [54]'
-group_c_stndrd = 'Maloney, Erin [73]'
-group_m_stndrd = 'Crooks, Carol [91]' #Biundo (staff), Rebecca
-group_u_stndrd = 'DeLaney, Jennifer [135]' #Karch/Slocum, Eric and Lee
-
-#Wednesday
-group_a_keep = TRUE
-group_h_keep = TRUE
-group_c_keep = TRUE
-group_m_keep = TRUE
-group_u_keep = TRUE
+# #Wednesday
+# group_a_stndrd = 'Schwind, Anna [24]'     #Foster, Bill
+# group_h_stndrd = 'Block, Chantal [35]'    #Sabo, Stephanie
+# group_c_stndrd = NA
+# group_m_stndrd = 'Crooks, Carol [91]'     #Biundo (staff), Rebecca
+# group_u_stndrd = 'Dukes, Brian [133]'       #Karch/Slocum, Eric and Lee
+# 
+# #Wednesday
+# group_a_keep = TRUE
+# group_h_keep = TRUE
+# group_c_keep = NA
+# group_m_keep = TRUE
+# group_u_keep = TRUE
 
 ############################################################
 
 # #Thursday
-# group_a_stndrd = 'Garrett, Elizabeth/Kelly [33]'
-# group_h_stndrd = 'Kinman, Tricia [61]'
-# group_c_stndrd = 'Kruszynski, Stacy [10]'
-# group_m_stndrd = 'Karr, Mary [87]'
-# group_u_stndrd = NA
+# group_a_stndrd = 'Garrett, Elizabeth/Kelly [32]'
+# group_h_stndrd = 'Rothgangel, Ella [62]'            #'Kinman, Tricia [61]'
+# group_c_stndrd = NA                               #'Kruszynski, Stacy [10]'
+# group_m_stndrd = 'Karr, Mary [79]'
+# group_u_stndrd = 'Arbanas, Michael [101]'
 # 
 # #Thursday
 # group_a_keep = TRUE
 # group_h_keep = TRUE
-# group_c_keep = TRUE
+# group_c_keep = NA
 # group_m_keep = TRUE
-# group_u_keep = NA
+# group_u_keep = TRUE
 
 ############################################################
 
-# #Friday
-# group_a_stndrd = NA
-# group_h_stndrd = NA
-# group_c_stndrd = NA
-# group_m_stndrd = 'Przyzycki, Lori [4]'
-# group_u_stndrd = NA
-# 
-# #Friday
-# group_a_keep = NA
-# group_h_keep = NA
-# group_c_keep = NA
-# group_m_keep = TRUE
-# group_u_keep = NA
+#Friday
+group_a_stndrd = NA
+group_h_stndrd = NA
+group_c_stndrd = NA
+group_m_stndrd = 'Sanftner, Tracy [4]'  #Przyzycki, Lori
+group_u_stndrd = NA
+
+#Friday
+group_a_keep = NA
+group_h_keep = NA
+group_c_keep = NA
+group_m_keep = TRUE
+group_u_keep = NA
 
 ############################################################
 
