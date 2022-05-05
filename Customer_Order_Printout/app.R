@@ -152,6 +152,11 @@ ui <- fluidPage(
                  uiOutput("remove_item_temp_select_3a_rui"),
                  uiOutput("remove_item_temp_3a_rui"),
                  uiOutput("process_3a_rui"),
+                 h4(uiOutput("download_plants_text_rui")),
+                 uiOutput("download_plants_rui"),
+                 h4(uiOutput("step3b")),
+                 h5(uiOutput("step3b_text")),
+                 uiOutput("step3b_process"),
                  h3(uiOutput("step3")),
                  h3(uiOutput("step3_"))
                  
@@ -169,6 +174,10 @@ ui <- fluidPage(
                  dataTableOutput("preview3")
                )
              )
+    ),
+    tabPanel("Step 4 - Item Styling"
+    ),
+    tabPanel("Step 5 - Check In Sheet"
     )
     )
 )
@@ -1081,28 +1090,258 @@ server <- function(input, output) {
     
     #### Plant Print Out (Optional Download Button)
     ##################################################################### 
+    plant_output = df_long_def$data |> 
+      filter(item %in% delete_plants$item) |>
+      select(group_name, lastname, firstname, item, quantity)
     
-    
-    
-    
-    
-    
+    if (dim(plant_output)[1] > 0) {
+      output$download_plants_text_rui <- renderUI({
+        renderText(paste0(emo::ji('seedling'),emo::ji('seedling'),
+                          "Plants Found - Order!",
+                          emo::ji('seedling'),emo::ji('seedling')
+                          )
+                   )
+      })
+      
+      output$download_plants_rui <- renderUI({
+        downloadHandler(
+          filename = function() {
+            paste0('PotPlant_File_',input$date_value,'.xlsx')
+          },
+          content = function(file) {
+            wb_p <- createWorkbook(title = 'PotPlant_File')
+            addWorksheet(wb_p, "sheet1")
+            writeData(wb_p, "sheet1", plant_output)
+            saveWorkbook(wb_p, file, overwrite = TRUE)
+          })
+      })
+    }
     output$step3a = renderText(paste0("Step 3a ",emo::ji('heavy_check_mark')))
     
+    output$step3b <- renderUI({
+      renderText(paste0("Step 3b ",emo::ji('black_circle')))
+    })
+    
+    output$step3b_text <- renderUI({
+      HTML("Check Deletion Results.<br>
+           <ul>
+            <li>If issues redue Step 3a.
+            <li>If no issues Process Step 3b.
+           <ul>")
+    })
+    output$step3b_process <- renderUI({
+      actionButton("process_3b","Step 3b. Process")
+    })
     })
   
-  ##NEED TO CREATE DOWNLOAD BUTTON FOR POT PLANT PRINTOUT IF DATAFRAME IS POPULATED 
-  ##NEED TO ADD AN ACTION BUTTON (3b) THAT STATES TO CHECK THE RESULTS FROM DELETING RECORDS. 
-    ##IF GOOD (AKA THEY CLICK THE BUTTON) THEN CREATE TWO COLUMN OUTPUT AND UPDATE THE PREVIEW3 TABLE
-    ##THEN UPDATE THE BUTTONS TO ALL SHOW AS SUCCESSFUL AND GO TO STEP 4
-  
-  
-
-  
-  
-  #### Optimize orders to two columns
+  ### Optimize orders to two columns
   #####################################################################
+  column1_print = reactiveValues(data = NA)
+  column2_print = reactiveValues(data = NA)
   
+  observeEvent(input$process_3b,{
+    
+    opt_group = df_long_del$data |> 
+      ungroup() |> 
+      filter(rank >= 0) |> 
+      group_by(group_name, description, time, lastname, firstname, id) |> 
+      summarise(n = n()) |>  
+      ungroup() |> 
+      arrange(group_name, description, time, lastname, firstname, desc(n))
+    
+    group_names = df_long_del$data |>  
+      ungroup() |> 
+      select(group_name) |> 
+      distinct()
+    
+    column1 = as.data.frame(NULL)
+    column2 = as.data.frame(NULL)
+    row_max = 45 ##one minus the max amount of rows per sheet in print process
+    g_name = NULL
+    
+    # test <- function(){
+    for (g in 1:dim(group_names)[1]) {
+      g_name = group_names$group_name[g]
+      opt_grouped = opt_group |> 
+        filter(group_name == g_name)
+      page = 1
+      c1_rows = 0
+      c2_rows = 0
+      c1_cust = 0
+      c2_cust = 0
+      name = NA
+      for (i in 1:dim(opt_grouped)[1]) {
+        name = opt_grouped[i,]
+        if (dim(column1)[1] == 0 & dim(column2)[1] == 0 & i == 1) {
+          column1 = column1 %>% 
+            rbind(opt_grouped[i,] %>% 
+                    mutate(page_n = page
+                    )
+            )
+          c1_rows = column1$n[dim(column1)[1]]
+          c1_cust = 1
+        } else {
+          if (floor((opt_grouped$n[i] + c1_rows)/row_max) > 0 & floor((opt_grouped$n[i] + c2_rows)/row_max) > 0) {
+            page = page+1
+            column1 = column1 %>% 
+              rbind(opt_grouped[i,] %>% 
+                      mutate(page_n = page
+                      )
+              )
+            c1_rows = column1$n[dim(column1)[1]]
+            c2_rows = 0
+            c1_cust = 1
+            c2_cust = 0
+          } else if (floor((opt_grouped$n[i] + c1_rows)/row_max) > 0 & floor((opt_grouped$n[i] + c2_rows)/row_max) == 0) {
+            column2 = column2 %>% 
+              rbind(opt_grouped[i,] %>% 
+                      mutate(page_n = page
+                      )
+              )
+            c2_rows = c2_rows + column2$n[dim(column2)[1]]
+            c2_cust = c2_cust + 1
+          }  else if (floor((opt_grouped$n[i] + c1_rows)/row_max) == 0 & floor((opt_grouped$n[i] + c2_rows)/row_max) > 0) {
+            column1 = column1 %>%
+              rbind(opt_grouped[i,] %>%
+                      mutate(page_n = page
+                      )
+              )
+            c1_rows = c1_rows + column1$n[dim(column1)[1]]
+            c1_cust = c1_cust + 1
+          } else if (c1_cust > c2_cust) {
+            column2 = column2 %>% 
+              rbind(opt_grouped[i,] %>% 
+                      mutate(page_n = page
+                      )
+              )
+            c2_rows = c2_rows + column2$n[dim(column2)[1]]
+            c2_cust = c2_cust + 1
+          } else {
+            column1 = column1 %>% 
+              rbind(opt_grouped[i,] %>% 
+                      mutate(page_n = page
+                      )
+              )
+            c1_rows = c1_rows + column1$n[dim(column1)[1]]
+            c1_cust = c1_cust + 1
+          }
+        }
+        # print(opt_grouped$n[i])
+      }
+    }
+    # }
+    # 
+    # debug(test)
+    
+    group_name_additions_c1 = df_long_del$data %>% 
+      ungroup() |> 
+      filter(rank < 0) |> 
+      mutate(n = 1) |> 
+      select(group_name, description, time, lastname, firstname, id, n) |> 
+      left_join(column1 |> 
+                  select(group_name, page_n) |> 
+                  distinct()
+                , by = c('group_name')
+      ) |> 
+      rbind(column1) |> 
+      arrange(group_name, page_n, description, time, lastname, firstname, desc(n))
+    
+    group_name_additions_c2 = df_long_del$data %>% 
+      ungroup() |> 
+      filter(rank < 0) |> 
+      mutate(n = 1) |> 
+      select(group_name, description, time, lastname, firstname, id, n) |> 
+      left_join(column2 |> 
+                  select(group_name, page_n) |> 
+                  distinct()
+                , by = c('group_name')
+      ) |> 
+      rbind(column2) |> 
+      arrange(group_name, page_n, description, time, lastname, firstname, desc(n))
+    
+    row_df = data.frame(row_n = 0:row_max+1)
+    print_full = column1 |> 
+      select(group_name, page_n) |> 
+      distinct() |> 
+      full_join(row_df, by = character()
+      )
+    
+    column1_w_groups = group_name_additions_c1 |> 
+      select(id, n, page_n, group_name_col = group_name) |> 
+      left_join(df_long_del$data |> 
+                  ungroup() |> 
+                  filter(rank >= 0)
+                , by = c('id')
+      ) |> 
+      mutate(item = ifelse(is.na(rank), group_name_col, item),
+             group_name = ifelse(is.na(rank), group_name_col, group_name),
+             rank = ifelse(is.na(rank), -1, rank)
+      ) |> 
+      select(-group_name_col) |> 
+      group_by(group_name, page_n) |> 
+      mutate(row_n = rank(row_number()))
+    
+    column2_w_groups = group_name_additions_c2 |> 
+      select(id, n, page_n, group_name_col = group_name) |> 
+      left_join(df_long_del$data |> 
+                  ungroup() |> 
+                  filter(rank >= 0)
+                , by = c('id')
+      ) |> 
+      mutate(item = ifelse(is.na(rank), group_name_col, item),
+             group_name = ifelse(is.na(rank), group_name_col, group_name),
+             rank = ifelse(is.na(rank), -1, rank)
+      ) |> 
+      select(-group_name_col) |> 
+      group_by(group_name, page_n) |> 
+      mutate(row_n = rank(row_number()))
+    
+    stopifnot(column1_w_groups |> 
+                filter(row_n > row_max+1) |> 
+                summarise(n=n()) |> 
+                pull() == 0)
+    
+    stopifnot(column2_w_groups |> 
+                filter(row_n > row_max+1) |> 
+                summarise(n=n()) |> 
+                pull() == 0)
+    
+    column1_print$data = print_full |> 
+      left_join(column1_w_groups
+                , by = c('group_name', 'page_n', 'row_n')
+      )
+    
+    column2_print$data = print_full |> 
+      left_join(column2_w_groups
+                , by = c('group_name', 'page_n', 'row_n')
+      )
+    
+    output$preview3 = renderDataTable(datatable(column1_print$data |>
+                                                  select('Description' = item) |> 
+                                                  cbind(column2_print$data |>
+                                                          select('Description' = item))
+                                                , options = list(dom = 'ltip'
+                                                                 , pageLength = 5
+                                                                 , lengthMenu = c(5, 10, 15, 20) 
+                                                )))
+    
+    output$step3b = renderUI(
+      renderText(paste0("Step 3b ",emo::ji('heavy_check_mark')))
+    )
+    
+    output$step3 <- renderUI(
+      renderText(paste0(emo::ji('heavy_check_mark'), " Step 3 is Complete! ",emo::ji('party_popper')))
+    )
+    output$step3_ <- renderUI(
+      renderText(paste0(emo::ji('index_pointing_up'),
+                        emo::ji('index_pointing_up'),
+                        "   GO TO STEP 4 TAB! "
+                        ,emo::ji('index_pointing_up')
+                        ,emo::ji('index_pointing_up')))
+    )
+    
+  })
+
   
   
   ## Step 4 (Item Styling)
