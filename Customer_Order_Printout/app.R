@@ -1136,189 +1136,206 @@ server <- function(input, output) {
   
   ### Optimize orders to two columns
   #####################################################################
-  column1_print = reactiveValues(data = NA)
-  column2_print = reactiveValues(data = NA)
+  column_print_comb_excel = reactiveValues(data = NA)
+  column_print_comb_openo = reactiveValues(data = NA)
+  # column_print_comb_sheets = reactiveValues(data = NA)
   
   observeEvent(input$process_3b,{
     
-    opt_group = df_long_del$data |> 
-      ungroup() |> 
-      filter(rank >= 0) |> 
-      group_by(group_name, description, time, lastname, firstname, id) |> 
-      summarise(n = n()) |>  
-      ungroup() |> 
-      arrange(group_name, description, time, lastname, firstname, desc(n))
-    
-    group_names = df_long_del$data |>  
-      ungroup() |> 
-      select(group_name) |> 
-      distinct()
-    
-    column1 = as.data.frame(NULL)
-    column2 = as.data.frame(NULL)
-    row_max = 45 ##one minus the max amount of rows per sheet in print process
-    g_name = NULL
-    
-    # test <- function(){
-    for (g in 1:dim(group_names)[1]) {
-      g_name = group_names$group_name[g]
-      opt_grouped = opt_group |> 
-        filter(group_name == g_name)
-      page = 1
-      c1_rows = 0
-      c2_rows = 0
-      c1_cust = 0
-      c2_cust = 0
-      name = NA
-      for (i in 1:dim(opt_grouped)[1]) {
-        name = opt_grouped[i,]
-        if (dim(column1)[1] == 0 & dim(column2)[1] == 0 & i == 1) {
-          column1 = column1 %>% 
-            rbind(opt_grouped[i,] %>% 
-                    mutate(page_n = page
-                    )
-            )
-          c1_rows = column1$n[dim(column1)[1]]
-          c1_cust = 1
-        } else {
-          if (floor((opt_grouped$n[i] + c1_rows)/row_max) > 0 & floor((opt_grouped$n[i] + c2_rows)/row_max) > 0) {
-            page = page+1
+    optimize_columns = function(data, max_rows) {
+      opt_group = data |> 
+        ungroup() |> 
+        filter(rank >= 0) |> 
+        group_by(group_name, description, time, lastname, firstname, id) |> 
+        summarise(n = n()) |>  
+        ungroup() |> 
+        arrange(group_name, description, time, lastname, firstname, desc(n))
+      
+      group_names = data |>  
+        ungroup() |> 
+        select(group_name) |> 
+        distinct()
+      
+      column1 = as.data.frame(NULL)
+      column2 = as.data.frame(NULL)
+      row_max = max_rows - 1 ##one minus the max amount of rows per sheet in print process
+      g_name = NULL
+      
+      
+      for (g in 1:dim(group_names)[1]) {
+        g_name = group_names$group_name[g]
+        opt_grouped = opt_group |> 
+          filter(group_name == g_name)
+        page = 1
+        c1_rows = 0
+        c2_rows = 0
+        c1_cust = 0
+        c2_cust = 0
+        name = NA
+        for (i in 1:dim(opt_grouped)[1]) {
+          name = opt_grouped[i,]
+          if (dim(column1)[1] == 0 & dim(column2)[1] == 0 & i == 1) {
             column1 = column1 %>% 
               rbind(opt_grouped[i,] %>% 
                       mutate(page_n = page
                       )
               )
             c1_rows = column1$n[dim(column1)[1]]
-            c2_rows = 0
             c1_cust = 1
-            c2_cust = 0
-          } else if (floor((opt_grouped$n[i] + c1_rows)/row_max) > 0 & floor((opt_grouped$n[i] + c2_rows)/row_max) == 0) {
-            column2 = column2 %>% 
-              rbind(opt_grouped[i,] %>% 
-                      mutate(page_n = page
-                      )
-              )
-            c2_rows = c2_rows + column2$n[dim(column2)[1]]
-            c2_cust = c2_cust + 1
-          }  else if (floor((opt_grouped$n[i] + c1_rows)/row_max) == 0 & floor((opt_grouped$n[i] + c2_rows)/row_max) > 0) {
-            column1 = column1 %>%
-              rbind(opt_grouped[i,] %>%
-                      mutate(page_n = page
-                      )
-              )
-            c1_rows = c1_rows + column1$n[dim(column1)[1]]
-            c1_cust = c1_cust + 1
-          } else if (c1_cust > c2_cust) {
-            column2 = column2 %>% 
-              rbind(opt_grouped[i,] %>% 
-                      mutate(page_n = page
-                      )
-              )
-            c2_rows = c2_rows + column2$n[dim(column2)[1]]
-            c2_cust = c2_cust + 1
           } else {
-            column1 = column1 %>% 
-              rbind(opt_grouped[i,] %>% 
-                      mutate(page_n = page
-                      )
-              )
-            c1_rows = c1_rows + column1$n[dim(column1)[1]]
-            c1_cust = c1_cust + 1
+            if (floor((opt_grouped$n[i] + c1_rows)/row_max) > 0 & floor((opt_grouped$n[i] + c2_rows)/row_max) > 0) {
+              page = page+1
+              column1 = column1 %>% 
+                rbind(opt_grouped[i,] %>% 
+                        mutate(page_n = page
+                        )
+                )
+              c1_rows = column1$n[dim(column1)[1]]
+              c2_rows = 0
+              c1_cust = 1
+              c2_cust = 0
+            } else if (floor((opt_grouped$n[i] + c1_rows)/row_max) > 0 & floor((opt_grouped$n[i] + c2_rows)/row_max) == 0) {
+              column2 = column2 %>% 
+                rbind(opt_grouped[i,] %>% 
+                        mutate(page_n = page
+                        )
+                )
+              c2_rows = c2_rows + column2$n[dim(column2)[1]]
+              c2_cust = c2_cust + 1
+            }  else if (floor((opt_grouped$n[i] + c1_rows)/row_max) == 0 & floor((opt_grouped$n[i] + c2_rows)/row_max) > 0) {
+              column1 = column1 %>%
+                rbind(opt_grouped[i,] %>%
+                        mutate(page_n = page
+                        )
+                )
+              c1_rows = c1_rows + column1$n[dim(column1)[1]]
+              c1_cust = c1_cust + 1
+            } else if (c1_cust > c2_cust) {
+              column2 = column2 %>% 
+                rbind(opt_grouped[i,] %>% 
+                        mutate(page_n = page
+                        )
+                )
+              c2_rows = c2_rows + column2$n[dim(column2)[1]]
+              c2_cust = c2_cust + 1
+            } else {
+              column1 = column1 %>% 
+                rbind(opt_grouped[i,] %>% 
+                        mutate(page_n = page
+                        )
+                )
+              c1_rows = c1_rows + column1$n[dim(column1)[1]]
+              c1_cust = c1_cust + 1
+            }
           }
+          # print(opt_grouped$n[i])
         }
-        # print(opt_grouped$n[i])
       }
+      # }
+      # 
+      # debug(test)
+      
+      group_name_additions_c1 = data %>% 
+        ungroup() |> 
+        filter(rank < 0) |> 
+        mutate(n = 1) |> 
+        select(group_name, description, time, lastname, firstname, id, n) |> 
+        left_join(column1 |> 
+                    select(group_name, page_n) |> 
+                    distinct()
+                  , by = c('group_name')
+        ) |> 
+        rbind(column1) |> 
+        arrange(group_name, page_n, description, time, lastname, firstname, desc(n))
+      
+      group_name_additions_c2 = data %>% 
+        ungroup() |> 
+        filter(rank < 0) |> 
+        mutate(n = 1) |> 
+        select(group_name, description, time, lastname, firstname, id, n) |> 
+        left_join(column2 |> 
+                    select(group_name, page_n) |> 
+                    distinct()
+                  , by = c('group_name')
+        ) |> 
+        rbind(column2) |> 
+        arrange(group_name, page_n, description, time, lastname, firstname, desc(n))
+      
+      row_df = data.frame(row_n = 0:row_max+1)
+      print_full = column1 |> 
+        select(group_name, page_n) |> 
+        distinct() |> 
+        full_join(row_df, by = character()
+        )
+      
+      column1_w_groups = group_name_additions_c1 |> 
+        select(id, n, page_n, group_name_col = group_name) |> 
+        left_join(data |> 
+                    ungroup() |> 
+                    filter(rank >= 0)
+                  , by = c('id')
+        ) |> 
+        mutate(item = ifelse(is.na(rank), group_name_col, item),
+               group_name = ifelse(is.na(rank), group_name_col, group_name),
+               rank = ifelse(is.na(rank), -1, rank)
+        ) |> 
+        select(-group_name_col) |> 
+        group_by(group_name, page_n) |> 
+        mutate(row_n = rank(row_number()))
+      
+      column2_w_groups = group_name_additions_c2 |> 
+        select(id, n, page_n, group_name_col = group_name) |> 
+        left_join(data |> 
+                    ungroup() |> 
+                    filter(rank >= 0)
+                  , by = c('id')
+        ) |> 
+        mutate(item = ifelse(is.na(rank), group_name_col, item),
+               group_name = ifelse(is.na(rank), group_name_col, group_name),
+               rank = ifelse(is.na(rank), -1, rank)
+        ) |> 
+        select(-group_name_col) |> 
+        group_by(group_name, page_n) |> 
+        mutate(row_n = rank(row_number()))
+      
+      stopifnot(column1_w_groups |> 
+                  filter(row_n > row_max+1) |> 
+                  summarise(n=n()) |> 
+                  pull() == 0)
+      
+      stopifnot(column2_w_groups |> 
+                  filter(row_n > row_max+1) |> 
+                  summarise(n=n()) |> 
+                  pull() == 0)
+      
+      column1_print = print_full |> 
+        left_join(column1_w_groups
+                  , by = c('group_name', 'page_n', 'row_n')
+        )
+      
+      column2_print = print_full |> 
+        left_join(column2_w_groups
+                  , by = c('group_name', 'page_n', 'row_n')
+        )
+      
+      column_print_combined = column1_print |> 
+        mutate(column = 1) |> 
+        rbind(column2_print |> 
+                mutate(column = 2)
+        )
+      
+      return(column_print_combined)
     }
-    # }
-    # 
-    # debug(test)
     
-    group_name_additions_c1 = df_long_del$data %>% 
-      ungroup() |> 
-      filter(rank < 0) |> 
-      mutate(n = 1) |> 
-      select(group_name, description, time, lastname, firstname, id, n) |> 
-      left_join(column1 |> 
-                  select(group_name, page_n) |> 
-                  distinct()
-                , by = c('group_name')
-      ) |> 
-      rbind(column1) |> 
-      arrange(group_name, page_n, description, time, lastname, firstname, desc(n))
+    column_print_comb_excel$data = optimize_columns(df_long_del$data, 46)
+    column_print_comb_openo$data = optimize_columns(df_long_del$data, 47)
+    # column_print_comb_sheets = optimize_columns(df_long_del$data, 47)
     
-    group_name_additions_c2 = df_long_del$data %>% 
-      ungroup() |> 
-      filter(rank < 0) |> 
-      mutate(n = 1) |> 
-      select(group_name, description, time, lastname, firstname, id, n) |> 
-      left_join(column2 |> 
-                  select(group_name, page_n) |> 
-                  distinct()
-                , by = c('group_name')
-      ) |> 
-      rbind(column2) |> 
-      arrange(group_name, page_n, description, time, lastname, firstname, desc(n))
-    
-    row_df = data.frame(row_n = 0:row_max+1)
-    print_full = column1 |> 
-      select(group_name, page_n) |> 
-      distinct() |> 
-      full_join(row_df, by = character()
-      )
-    
-    column1_w_groups = group_name_additions_c1 |> 
-      select(id, n, page_n, group_name_col = group_name) |> 
-      left_join(df_long_del$data |> 
-                  ungroup() |> 
-                  filter(rank >= 0)
-                , by = c('id')
-      ) |> 
-      mutate(item = ifelse(is.na(rank), group_name_col, item),
-             group_name = ifelse(is.na(rank), group_name_col, group_name),
-             rank = ifelse(is.na(rank), -1, rank)
-      ) |> 
-      select(-group_name_col) |> 
-      group_by(group_name, page_n) |> 
-      mutate(row_n = rank(row_number()))
-    
-    column2_w_groups = group_name_additions_c2 |> 
-      select(id, n, page_n, group_name_col = group_name) |> 
-      left_join(df_long_del$data |> 
-                  ungroup() |> 
-                  filter(rank >= 0)
-                , by = c('id')
-      ) |> 
-      mutate(item = ifelse(is.na(rank), group_name_col, item),
-             group_name = ifelse(is.na(rank), group_name_col, group_name),
-             rank = ifelse(is.na(rank), -1, rank)
-      ) |> 
-      select(-group_name_col) |> 
-      group_by(group_name, page_n) |> 
-      mutate(row_n = rank(row_number()))
-    
-    stopifnot(column1_w_groups |> 
-                filter(row_n > row_max+1) |> 
-                summarise(n=n()) |> 
-                pull() == 0)
-    
-    stopifnot(column2_w_groups |> 
-                filter(row_n > row_max+1) |> 
-                summarise(n=n()) |> 
-                pull() == 0)
-    
-    column1_print$data = print_full |> 
-      left_join(column1_w_groups
-                , by = c('group_name', 'page_n', 'row_n')
-      )
-    
-    column2_print$data = print_full |> 
-      left_join(column2_w_groups
-                , by = c('group_name', 'page_n', 'row_n')
-      )
-    
-    output$preview3 = renderDataTable(datatable(column1_print$data |>
+    output$preview3 = renderDataTable(datatable(column_print_comb_excel$data |>
+                                                  filter(column == 1) |> 
                                                   select('Description' = item) |> 
-                                                  cbind(column2_print$data |>
+                                                  cbind(column_print_comb_excel$data |>
+                                                          filter(column == 2) |> 
                                                           select('Description' = item))
                                                 , options = list(dom = 'ltip'
                                                                  , pageLength = 5
@@ -1357,6 +1374,20 @@ server <- function(input, output) {
   #### Member Count - End
   
   ## Step 5 (Final checks / Print)
+  
+  ### Can we use Openxlsx(wb) to see the file in the last step?
+  
+  ### Get download. Question: Can you open Excel on computer?
+  
+  #### Yes. Excel version downloaded. Done
+  
+  #### No. Google Sheet Excel version downloaded
+  
+  ##### Then an upload action to grab the file just downloaded
+  
+  ##### Action would be to take that file and upload it to google drive with the correct spacing. 
+  
+  ##### Share link or view in RShiny. Done
   
 
 }
