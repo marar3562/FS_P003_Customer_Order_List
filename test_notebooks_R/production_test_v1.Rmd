@@ -1163,7 +1163,7 @@ workbook_created = function(data, width, height) {
 }
 
 wb_excel = workbook_created(df_long_symbol_excel, 39, 24)
-wb_openo = workbook_created(df_long_symbol_openo, 39, 24)
+wb_openo = workbook_created(df_long_symbol_openo, 39, 30)
 # wb_sheets = workbook_created(df_long_symbol_sheets, 34)
 
 
@@ -1191,6 +1191,11 @@ saveWorkbook(wb_openo, paste0('print_openo_',date,'.xlsx'), overwrite = TRUE)
 # sheet_resize(gs_move, nrow = dim(df_long_symbol_sheets)[1]/2, ncol = 2, exact = TRUE)
 # range_autofit(gs_move, dimension = 'rows')
 # drive_browse(gs_move)
+
+
+##Another option to explore
+# library(readODS)
+# write_ods(iris, "iris.ods")
 ```
 
 ## Member Count - End
