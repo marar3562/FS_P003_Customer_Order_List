@@ -735,7 +735,7 @@ optimize_columns = function(data, max_rows) {
 }
 
 column_print_comb_excel = optimize_columns(df_long_del, 46)
-column_print_comb_openo = optimize_columns(df_long_del, 47)
+column_print_comb_openo = optimize_columns(df_long_del, 46) # Have to make all row heights = 0.22"
 # column_print_comb_sheets = optimize_columns(df_long_del, 47)
 
 ```
@@ -1045,7 +1045,7 @@ style_xlsx = function(wb_n, sheet, col_n, match, text, colorhex, text_dec_name) 
   
 }
 
-workbook_created = function(data, width) {
+workbook_created = function(data, width, height) {
   df_long_sh_color_c1 = data |> 
     filter(column == 1) |> 
     left_join(sh_shares_shrt
@@ -1080,6 +1080,7 @@ workbook_created = function(data, width) {
   writeData(wb, "testing", write_df, colNames = FALSE)
   
   setColWidths(wb, "testing", cols = 1:2, widths = width)
+  setRowHeights(wb, "testing", rows = (dim(data)[1]/2), heights = height)
   modifyBaseFont(wb, fontSize = 12, fontColour = "black", fontName = "Calibri")
   
   ## Coloring each Group and Member names based on Google Sheet 
@@ -1161,8 +1162,8 @@ workbook_created = function(data, width) {
   return(wb)
 }
 
-wb_excel = workbook_created(df_long_symbol_excel, 39)
-wb_openo = workbook_created(df_long_symbol_openo, 39)
+wb_excel = workbook_created(df_long_symbol_excel, 39, 24)
+wb_openo = workbook_created(df_long_symbol_openo, 39, 24)
 # wb_sheets = workbook_created(df_long_symbol_sheets, 34)
 
 
