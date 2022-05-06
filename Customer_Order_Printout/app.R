@@ -78,6 +78,98 @@ group_u_keep = NA
 
 pot_plant_text = 'Pot Plant'
 
+df_symbol_inputs_milk = data.frame(match_name = c('contains', 'contains', 'contains'
+                                                  , 'contains', 'contains', 'contains'
+                                                  , 'contains', 'contains', 'contains'
+                                                  , 'contains', 'contains', 'contains')
+                                   ,text_name = c('Milk - 2%','Milk - Chocolate','Milk - Creamline'
+                                                  , 'Milk - Skim','Milk - Whole', '2% MILK'
+                                                  , 'Chocolate MILK', 'Creamline MILK', 'Skim MILK'
+                                                  , 'Whole MILK', 'Whole Milk - o'
+                                                  , '64 Oz. Heavy Cream')
+                                   ,freeform_text = c('[*]', '[*]', '[*]', '[*]', '[*]'
+                                                      , '[*]', '[*]', '[*]', '[*]', '[*]'
+                                                      , '[*]', '[*]')
+                                   ,emoji_name = c(emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2')
+                                                   , emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2')
+                                                   , emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2')
+                                                   , emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2'))
+)
+
+df_symbol_inputs_pizza = data.frame(match_name = c('contains', 'contains', 'contains'
+                                                   , 'contains', 'contains', 'contains'
+                                                   , 'contains', 'contains')
+                                    ,text_name = c('Pizza - Cheese','Pizza - Deluxe'
+                                                   ,'Pizza - Four Meat','Pizza - Hot Chicken'
+                                                   ,'Pizza - Pepperoni','Pizza - Sausage Pepperoni'
+                                                   ,'Pizza - Tomato Basil Garlic','Pizza - Veggie')
+                                    ,freeform_text = c('[**]', '[**]', '[**]', '[**]'
+                                                       , '[**]', '[**]', '[**]', '[**]')
+                                    ,emoji_name = c(emo::ji('pizza'), emo::ji('pizza'), emo::ji('pizza')
+                                                    , emo::ji('pizza'), emo::ji('pizza'), emo::ji('pizza')
+                                                    , emo::ji('pizza'), emo::ji('pizza'))
+)
+
+df_symbol_inputs_other = data.frame(match_name = c('contains', 'contains','contains'
+                                                   ,'contains','contains','contains')
+                                    ,text_name = c('FF Dish - Creole Shrimp & Okra'
+                                                   , 'Pork - Andouille links','Raw Milk Aged Cheddar'
+                                                   , 'Pickup Time','Schlafly Beer'
+                                                   , 'Pre-ordered Plants')
+                                    ,freeform_text = c('[**]', '[andouille]', '[1]',NA, NA,NA)
+                                    ,emoji_name = c(emo::ji('fried_shrimp'), NA, emo::ji('cheese')
+                                                    , emo::ji('clock3'), emo::ji('beer')
+                                                    , emo::ji('seedling'))
+)
+df_symbol_inputs_orig = df_symbol_inputs_milk |> 
+  rbind(df_symbol_inputs_pizza) |> 
+  rbind(df_symbol_inputs_other) |>  
+  mutate(row_num = row_number())
+
+match_name_list = c('contains','equal','ends with','starts with')
+
+emoji_df_name = data.frame(emoji::emoji_name)
+emoji_df_name = emoji_df_name |> rownames_to_column()
+colnames(emoji_df_name) = c('name', 'emoji')
+
+keywords <- emo::ji_keyword
+emojis <- purrr::map_chr(keywords, function(x) paste0(x, collapse = ","))
+emoji_df_key = data.frame(keywords = names(emojis)
+                   , emojis)
+colnames(emoji_df_key) = c('keyword', 'name_list')
+emoji_df_key_long = emoji_df_key |>
+  mutate(name = strsplit(as.character(name_list), ",")) |>
+  unnest(name) |>
+  select(keyword, name) |>
+  distinct()
+
+emoji_df_comb = emoji_df_name |>
+  left_join(emoji_df_key_long
+            , by = c('name')
+  ) |>
+  arrange(name, keyword) |>
+  group_by(name, emoji) |>
+  mutate(keyword_list = paste0(keyword, collapse = ",")) |>
+  ungroup() |>
+  select(-keyword) |>
+  distinct()
+
+fs_emoji_df = emoji_df_comb |> 
+  filter(str_detect(keyword_list,'beer')
+         | str_detect(keyword_list,'plant')
+         | str_detect(keyword_list,'pizza')
+         | str_detect(keyword_list,'food')
+         | str_detect(keyword_list,'vege')
+         | str_detect(keyword_list,'cow')
+         | str_detect(keyword_list,'chicken')
+         | str_detect(keyword_list,'fish')
+         | str_detect(keyword_list,'shrimp')
+         | str_detect(keyword_list,'cheese')
+  )
+
+emoji_name_list = fs_emoji_df$emoji
+
+
 # Define UI for application that draws a histogram
 ui <- fluidPage(
 
@@ -175,7 +267,28 @@ ui <- fluidPage(
                )
              )
     ),
-    tabPanel("Step 4 - Item Styling"
+    tabPanel("Step 4 - Item Styling",
+             sidebarLayout(
+               sidebarPanel(
+                 h4(textOutput("step4a")),
+                 uiOutput("new_item_4a_match_rui"),
+                 uiOutput("new_item_4a_text_search_rui"),
+                 uiOutput("new_item_4a_text_add_rui"),
+                 uiOutput("new_item_4a_emoji_rui"),
+                 uiOutput("new_item_4a_add_rui"),
+                 uiOutput("new_item_4a_row_rui"),
+                 uiOutput("new_item_4a_remove_rui"),
+                 uiOutput("process_4a_rui"),
+                 h3(uiOutput("step4")),
+                 h3(uiOutput("step4_"))
+                 
+               ),
+               mainPanel(
+                 dataTableOutput("preview4a"),
+                 dataTableOutput("preview4b")
+               )
+             )
+             
     ),
     tabPanel("Step 5 - Check In Sheet"
     )
@@ -1140,6 +1253,8 @@ server <- function(input, output) {
   column_print_comb_openo = reactiveValues(data = NA)
   # column_print_comb_sheets = reactiveValues(data = NA)
   
+  df_symbol_inputs = reactiveValues(data = df_symbol_inputs_orig) # Used in Step 4)
+  
   observeEvent(input$process_3b,{
     
     optimize_columns = function(data, max_rows) {
@@ -1357,21 +1472,289 @@ server <- function(input, output) {
                         ,emo::ji('index_pointing_up')))
     )
     
+    
+    ##### Step 4 Variables Created
+    
+    output$new_item_4a_match_rui <- renderUI(
+      selectInput("new_item_4a_match", "Select Match Type (Required):"
+                  , c(NA, match_name_list)
+                  , multiple = FALSE
+      )
+    )
+    
+    output$new_item_4a_text_search_rui <- renderUI(
+      textInput("new_item_4a_text_search", "Text to Search for (Required - Case Sensitive!):"
+      )
+    )
+    
+    output$new_item_4a_text_add_rui <- renderUI(
+      textInput("new_item_4a_text_add", "Text to Add (Optional):"
+      )
+    )
+    
+    output$new_item_4a_emoji_rui <- renderUI(
+      selectInput("new_item_4a_emoji", "Select Emoji (Optional):"
+                  , c(NA, emoji_name_list)
+                  , multiple = FALSE
+      )
+    )
+    
+    output$new_item_4a_add_rui <- renderUI(
+      actionButton("new_item_4a_add", "Add Item Text Change")
+    )
+  
+    output$new_item_4a_row_rui <- renderUI(
+      selectInput("new_item_4a_row", "Select Search Row Number to Remove"
+                  , c(NA, df_symbol_inputs$data |> 
+                          select(row_num) |> 
+                          pull()
+                       )
+                  , multiple = FALSE
+      )
+    )
+    
+    output$new_item_4a_remove_rui <- renderUI(
+      actionButton("new_item_4a_remove", "Remove Item Text Change")
+    )
+    
+    output$process_4a_rui <- renderUI(
+      actionButton("process_4a", "Step 4a. Process")
+    )
+    
+    output$preview4a = renderDataTable(datatable(df_symbol_inputs$data |> 
+                                                   select('Match Type' = match_name
+                                                          , 'Searched Text' = text_name
+                                                          , 'Added Text' = freeform_text
+                                                          , Emoji = emoji_name)
+                                                 , options = list(dom = 'ltip'
+                                                                  , pageLength = 5
+                                                                  , lengthMenu = c(5, 10, 15, 20) 
+                                                 )))
+    
   })
 
+  ############## Step 4 (Add Text/Emojis)  ##############
+  #############################################################################################
+  ###### ENHANCEMENT LIST FOR STEP:
+      ## Add in to the searched text the Row Count found after processed
   
   
-  ## Step 4 (Item Styling)
+  output$step4a = renderText(paste0("Step 4a ",emo::ji('black_circle')))
   
-  ### adding in symbols or emojis
+  df_long_symbol_excel = reactiveValues(data = NA)
+  df_long_symbol_openo = reactiveValues(data = NA)
   
-  ### Highlight Share / customer names (via Excel)
+  ### Add Item Search  
+  #####################################################################
+  observeEvent(input$new_item_4a_add,{
+    if (input$new_item_4a_match == 'NA') {
+      showModal(modalDialog(
+        title = paste0(emo::ji('stop_sign')," Error"),
+        HTML("Before adding a new text search to change the <b>Match Type</b> field needs to not show as <u>NA</u>."),
+        easyClose = TRUE
+      ))
+    } else if (input$new_item_4a_text_search == '') {
+      showModal(modalDialog(
+        title = paste0(emo::ji('stop_sign')," Error"),
+        HTML("Before adding a new text search to change the <b>Text to Search</b> field needs to not show as <u>blank</u>."),
+        easyClose = TRUE
+      ))
+    } else if (input$new_item_4a_text_add == '' & input$new_item_4a_emoji == 'NA') {
+      showModal(modalDialog(
+        title = paste0(emo::ji('stop_sign')," Error"),
+        HTML("Before adding a new text search to change the <b>Text to Add</b> field needs to not show as <u>blank</u><br>
+             OR<br>
+             The <b>Emoji</b> dropdown needs to not show as <u>NA</u>"),
+        easyClose = TRUE
+      ))
+    } else {
+      ## add data
+      if (input$new_item_4a_emoji == 'NA') {
+        df_symbol_in1 = df_symbol_inputs$data |> 
+          select(-row_num) |> 
+          rbind(
+            data.frame(match_name = c(input$new_item_4a_match)
+                       ,text_name = c(input$new_item_4a_text_search)
+                       ,freeform_text = c(input$new_item_4a_text_add)
+                       ,emoji_name = c('')
+            ) 
+            
+          ) |>  
+          distinct() |> 
+          mutate(row_num = row_number())
+      } else {
+        df_symbol_in1 = df_symbol_inputs$data |> 
+          select(-row_num) |> 
+          rbind(
+            data.frame(match_name = c(input$new_item_4a_match)
+                       ,text_name = c(input$new_item_4a_text_search)
+                       ,freeform_text = c(input$new_item_4a_text_add)
+                       ,emoji_name = c(input$new_item_4a_emoji)
+            )
+          ) |>  
+          distinct() |> 
+          mutate(row_num = row_number())
+      }
+      #update drop down row # for remove
+      output$new_item_4a_row_rui <- renderUI(
+        selectInput("new_item_4a_row", "Select Search Row Number to Remove"
+                    , c(NA, df_symbol_in1 |> 
+                         select(row_num) |> 
+                         pull()
+                    )
+                    , multiple = FALSE
+        )
+      )
+      #update chart
+      output$preview4a = renderDataTable(datatable(df_symbol_in1 |> 
+                                                     select('Match Type' = match_name
+                                                            , 'Searched Text' = text_name
+                                                            , 'Added Text' = freeform_text
+                                                            , Emoji = emoji_name)
+                                                   , options = list(dom = 'ltip'
+                                                                    , pageLength = 5
+                                                                    , lengthMenu = c(5, 10, 15, 20) 
+                                                   )))
+      df_symbol_inputs$data = df_symbol_in1
+    }
+
+  })
   
-  ### Action
+  ### Remove Item Search
+  #####################################################################
+  observeEvent(input$new_item_4a_remove,{
+    if (input$new_item_4a_row == 'NA') {
+      showModal(modalDialog(
+        title = paste0(emo::ji('stop_sign')," Error"),
+        HTML("Before removing a text search line the <b>Select Search Row Number to Remove</b> field needs to not show as <u>NA</u>."),
+        easyClose = TRUE
+      ))
+    } else {
+      df_symbol_in2 = df_symbol_inputs$data |> 
+        filter(row_num != input$new_item_4a_row) |> 
+        select(-row_num) |> 
+        distinct() |> 
+        mutate(row_num = row_number())
+        
+      #update drop down row # for remove
+      output$new_item_4a_row_rui <- renderUI(
+         selectInput("new_item_4a_row", "Select Search Row Number to Remove"
+                      , c(NA, df_symbol_in2 |> 
+                           select(row_num) |> 
+                           pull()
+                      )
+                      , multiple = FALSE
+          )
+        )
+        
+      #update chart
+      output$preview4a = renderDataTable(datatable(df_symbol_in2 |> 
+                                                       select('Match Type' = match_name
+                                                              , 'Searched Text' = text_name
+                                                              , 'Added Text' = freeform_text
+                                                              , Emoji = emoji_name)
+                                                     , options = list(dom = 'ltip'
+                                                                      , pageLength = 5
+                                                                      , lengthMenu = c(5, 10, 15, 20) 
+                                                     )))
+      df_symbol_inputs$data = df_symbol_in2
+    }
+    
+  })   
   
-  #### Final view of data seen
+  ### Process Search and Add new Text/Emojis
+  #####################################################################
+  observeEvent(input$process_4a,{
+    symbol_addition = function(item_n, match_n, text_n, ff_n, em_n) {
+      ifelse((!is.na(ff_n)) & (!is.na(em_n)),
+             ifelse(match_n == 'equal', ifelse(item_n == text_n, paste0(em_n, ff_n), NA),
+                    ifelse(match_n == 'contains', ifelse(str_detect(item_n, text_n), paste0(em_n, ff_n), NA),
+                           ifelse(match_n == 'starts with', ifelse(startsWith(item_n, text_n), paste0(em_n, ff_n), NA),
+                                  ifelse(match_n == 'ends with', ifelse(endsWith(item_n, text_n), paste0(em_n, ff_n), NA)
+                                         , NA))))
+             ,ifelse((!is.na(ff_n)), 
+                     ifelse(match_n == 'equal', ifelse(item_n == text_n, paste0(ff_n), NA),
+                            ifelse(match_n == 'contains', ifelse(str_detect(item_n, text_n), paste0(ff_n), NA),
+                                   ifelse(match_n == 'starts with', ifelse(startsWith(item_n, text_n), paste0(ff_n), NA),
+                                          ifelse(match_n == 'ends with', ifelse(endsWith(item_n, text_n), paste0(ff_n), NA)
+                                                 , NA))))
+                     ,ifelse((!is.na(em_n)) , 
+                             ifelse(match_n == 'equal', ifelse(item_n == text_n, paste0(em_n), NA),
+                                    ifelse(match_n == 'contains', ifelse(str_detect(item_n, text_n), paste0(em_n), NA),
+                                           ifelse(match_n == 'starts with', ifelse(startsWith(item_n, text_n), paste0(em_n), NA),
+                                                  ifelse(match_n == 'ends with', ifelse(endsWith(item_n, text_n), paste0(em_n), NA)
+                                                         , NA))))   
+                             , NA)))
+    }
+    
+    
+    add_item_styling = function(data) {
+      symbol_search = data |> 
+        select(item) |> 
+        distinct() |> 
+        full_join(df_symbol_inputs$data
+                  , by = character()
+        ) |> 
+        mutate(symbol_text = symbol_addition(item, match_name, text_name, freeform_text, emoji_name)) |> 
+        filter(!is.na(symbol_text)) |> 
+        select(item, symbol_text) |> 
+        arrange(item, symbol_text) |> 
+        group_by(item) |> 
+        mutate(symbol_text = paste0(symbol_text, collapse = "")) |> 
+        ungroup() |> 
+        distinct()
+      
+      df_long_symbol = data |> 
+        left_join(symbol_search
+                  , by = c('item')
+        ) |> 
+        mutate(quantity = ifelse(is.na(quantity), '', as.character(quantity))
+               , item = ifelse(is.na(item), '', item)
+               , item_symbol = ifelse(quantity == '', item, paste0(quantity,'x',item))
+               , qty_symbol = ifelse(quantity > 1, emo::ji('plus'), '')
+               , item_symbol = ifelse(is.na(symbol_text)
+                                      , paste0(qty_symbol, item_symbol)
+                                      , paste0(qty_symbol, symbol_text, item_symbol))
+        )
+      return(df_long_symbol)
+    }
+    
+    df_long_symbol_excel$data = add_item_styling(column_print_comb_excel$data)
+    df_long_symbol_openo$data = add_item_styling(column_print_comb_openo$data)
+
+    output$preview4b = renderDataTable(datatable(df_long_symbol_excel$data |>
+                                                  filter(column == 1) |> 
+                                                  select('Description' = item_symbol) |> 
+                                                  cbind(df_long_symbol_excel$data |>
+                                                          filter(column == 2) |> 
+                                                          select('Description' = item_symbol)
+                                                        )
+                                                , options = list(dom = 'ltip'
+                                                                 , pageLength = 5
+                                                                 , lengthMenu = c(5, 10, 15, 20) 
+                                                )))
+    
+    output$step4a = renderText(paste0("Step 4a ",emo::ji('heavy_check_mark')))
+  })
+
+  ##Finish Off Step 4 with...
+    ##Link and info about seeing all emojis possible
+    ##Step 4b to check work
+    ##Once Checked update statuses to be checked
   
-  #### Member Count - End
+  
+  ############## Step 5 (Color / Text Format)  ##############
+  #############################################################################################
+  ###### ENHANCEMENT LIST FOR STEP:
+  
+  
+  ### Color Background / Change Text Format
+  #####################################################################
+  
+  
+  ### Review Results (View??? / Download) 
+  #####################################################################
+  
   
   ## Step 5 (Final checks / Print)
   
@@ -1390,6 +1773,9 @@ server <- function(input, output) {
   ##### Share link or view in RShiny. Done
   
 
+  
+  ##Move this up (Delete step) or remove entirely???
+  #### Member Count - End
 }
 
 # Run the application 

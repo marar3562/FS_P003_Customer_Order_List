@@ -768,6 +768,19 @@ column_print_comb_openo = optimize_columns(df_long_del, 46) # Have to make all r
 #   ungroup() |>
 #   select(-keyword) |>
 #   distinct()
+# 
+# fs_emoji_df = test_comb |> 
+#   filter(str_detect(keyword_list,'beer')
+#          | str_detect(keyword_list,'plant')
+#          | str_detect(keyword_list,'pizza')
+#          | str_detect(keyword_list,'food')
+#          | str_detect(keyword_list,'vege')
+#          | str_detect(keyword_list,'cow')
+#          | str_detect(keyword_list,'chicken')
+#          | str_detect(keyword_list,'fish')
+#          | str_detect(keyword_list,'shrimp')
+#          | str_detect(keyword_list,'cheese')
+#            )
 
 # 
 # wb_e <- createWorkbook(title = 'emoji.xlsx')
