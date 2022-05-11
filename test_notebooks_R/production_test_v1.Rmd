@@ -16,15 +16,15 @@ library(googlesheets4)
 library(openxlsx)
 library(emoji)
 library(emo)
-library(googledrive)
+# library(googledrive)
 
 ```
 
 ## load data file
 
 ```{r}
-date = '05_05_2022'
-week = 'Wk 7'
+date = '05_12_2022'
+week = 'Wk 8'
 
 order_only_list = c('1 No Share - Order Only (even wk)',
                     '1 No Share - Order Only (odd wk)',
@@ -44,7 +44,7 @@ df_orig = read.csv(paste0(directory,'/farmigo_downloads/',file_name)) |>
 ```{r}
 r_email = ""
 gs4_auth(email = r_email)
-drive_auth(email = r_email)
+# drive_auth(email = r_email)
 ```
 
 ## load settings data
@@ -270,16 +270,16 @@ df_long_tm |>
 ############################################################
 
 # #Wednesday
-# group_a_stndrd = 'Schwind, Anna [24]'     #Foster, Bill
-# group_h_stndrd = 'Block, Chantal [35]'    #Sabo, Stephanie
-# group_c_stndrd = NA
-# group_m_stndrd = 'Crooks, Carol [91]'     #Biundo (staff), Rebecca
-# group_u_stndrd = 'Dukes, Brian [133]'       #Karch/Slocum, Eric and Lee
+# group_a_stndrd = 'Han, Martha [10]'     #Foster, Bill
+# group_h_stndrd = 'Sabo, Stephanie [54]'    #Block, Chantal
+# group_c_stndrd = 'Coolman, Audrey [67]'
+# group_m_stndrd = 'Crooks, Carol [95]'     #Biundo (staff), Rebecca
+# group_u_stndrd = 'McDaniel, Jennifer [147]'       #Karch/Slocum, Eric and Lee
 # 
 # #Wednesday
 # group_a_keep = TRUE
 # group_h_keep = TRUE
-# group_c_keep = NA
+# group_c_keep = TRUE
 # group_m_keep = TRUE
 # group_u_keep = TRUE
 
@@ -287,15 +287,15 @@ df_long_tm |>
 
 #Thursday
 group_a_stndrd = 'Garrett, Elizabeth/Kelly [32]'
-group_h_stndrd = 'Rothgangel, Ella [62]'            #'Kinman, Tricia [61]'
-group_c_stndrd = NA                               #'Kruszynski, Stacy [10]'
-group_m_stndrd = 'Karr, Mary [79]'
-group_u_stndrd = 'Arbanas, Michael [101]'
+group_h_stndrd = 'Wippermann, Jennifer [146]'     #Rothgangel, Ella    #Kinman, Tricia 
+group_c_stndrd = 'Gaston, Sarah [7]'               #Kruszynski, Stacy
+group_m_stndrd = 'Cordia, Wendy [81]'                #Karr, Mary
+group_u_stndrd = 'Lampitt, Maggie [121]'             #Arbanas, Michael
 
 #Thursday
 group_a_keep = TRUE
-group_h_keep = TRUE
-group_c_keep = NA
+group_h_keep = NA
+group_c_keep = TRUE
 group_m_keep = TRUE
 group_u_keep = TRUE
 
@@ -305,7 +305,7 @@ group_u_keep = TRUE
 # group_a_stndrd = NA
 # group_h_stndrd = NA
 # group_c_stndrd = NA
-# group_m_stndrd = 'Sanftner, Tracy [4]'  #Przyzycki, Lori
+# group_m_stndrd = 'Sanftner, Tracy [6]'  #Przyzycki, Lori
 # group_u_stndrd = NA
 # 
 # #Friday
@@ -963,100 +963,6 @@ df_long_symbol_openo = add_item_styling(column_print_comb_openo)
 ```{r}
 ## Create function to do color or text change based on search criteria in item
 
-style_xlsx = function(wb_n, sheet, col_n, match, text, colorhex, text_dec_name) {
-  if (!is.na(colorhex) & !is.na(text_dec_name)) {  #HIGHLIGHT BACKGROUND AND DECORATE TEXT
-    if (match == 'equal') {
-      addStyle(wb_n, sheet
-           , cols = col_n
-           , rows = which(df_long_sh_color$item == text)
-           , style = createStyle(fgFill = colorhex
-                                 ,textDecoration = text_dec_name)
-           )
-    } else if (match == 'contains') {
-      addStyle(wb_n, sheet
-           , cols = col_n
-           , rows = which(str_detect(df_long_sh_color$item, pattern = text))
-           , style = createStyle(fgFill = colorhex
-                                 ,textDecoration = text_dec_name)
-           )
-    } else if (match == 'starts with') {
-      addStyle(wb_n, sheet
-           , cols = col_n
-           , rows = which(startsWith(df_long_sh_color$item, text))
-           , style = createStyle(fgFill = colorhex
-                                 ,textDecoration = text_dec_name)
-           )
-    } else if (match == 'ends with') {
-      addStyle(wb_n, sheet
-           , cols = col_n
-           , rows = which(endsWith(df_long_sh_color$item, text))
-           , style = createStyle(fgFill = colorhex
-                                 ,textDecoration = text_dec_name)
-           )
-    } else {
-      print('valid match type not determined')
-    }
-  } else if (!is.na(colorhex)) {    #HIGHLIGHT BACKGROUND ONLY
-    if (match == 'equal') {
-      addStyle(wb_n, sheet
-           , cols = col_n
-           , rows = which(df_long_sh_color$item == text)
-           , style = createStyle(fgFill = colorhex)
-           )
-    } else if (match == 'contains') {
-      addStyle(wb_n, sheet
-           , cols = col_n
-           , rows = which(str_detect(df_long_sh_color$item, pattern = text))
-           , style = createStyle(fgFill = colorhex)
-           )
-    } else if (match == 'starts with') {
-      addStyle(wb_n, sheet
-           , cols = col_n
-           , rows = which(startsWith(df_long_sh_color$item, text))
-           , style = createStyle(fgFill = colorhex)
-           )
-    } else if (match == 'ends with') {
-      addStyle(wb_n, sheet
-           , cols = col_n
-           , rows = which(endsWith(df_long_sh_color$item, text))
-           , style = createStyle(fgFill = colorhex)
-           )
-    } else {
-      print('valid match type not determined')
-    }
-  } else if (!is.na(text_dec_name)) {   #DECORATE TEXT ONLY
-    if (match == 'equal') {
-      addStyle(wb_n, sheet
-           , cols = col_n
-           , rows = which(df_long_sh_color$item == text)
-           , style = createStyle(textDecoration = text_dec_name)
-           )
-    } else if (match == 'contains') {
-      addStyle(wb_n, sheet
-           , cols = col_n
-           , rows = which(str_detect(df_long_sh_color$item, pattern = text))
-           , style = createStyle(textDecoration = text_dec_name)
-           )
-    } else if (match == 'starts with') {
-      addStyle(wb_n, sheet
-           , cols = col_n
-           , rows = which(startsWith(df_long_sh_color$item, text))
-           , style = createStyle(textDecoration = text_dec_name)
-           )
-    } else if (match == 'ends with') {
-      addStyle(wb_n, sheet
-           , cols = col_n
-           , rows = which(endsWith(df_long_sh_color$item, text))
-           , style = createStyle(textDecoration = text_dec_name)
-           )
-    } else {
-      print('valid match type not determined')
-    }
-  } else {
-    print('Need to selet a color or text format type')
-  }
-  
-}
 
 workbook_created = function(data, width, height) {
   df_long_sh_color_c1 = data |> 
@@ -1149,6 +1055,104 @@ workbook_created = function(data, width, height) {
     bhfill_style <- createStyle(textDecoration = "bold")
     conditionalFormatting(wb, "testing", rule = "!=0", cols = 2, rows = j, style = bhfill_style)
   }
+  
+  
+  style_xlsx = function(wb_n, sheet, col_n, match, text, colorhex, text_dec_name) {
+    if (!is.na(colorhex) & !is.na(text_dec_name)) {  #HIGHLIGHT BACKGROUND AND DECORATE TEXT
+      if (match == 'equal') {
+        addStyle(wb_n, sheet
+             , cols = col_n
+             , rows = which(df_long_sh_color$item == text)
+             , style = createStyle(fgFill = colorhex
+                                   ,textDecoration = text_dec_name)
+             )
+      } else if (match == 'contains') {
+        addStyle(wb_n, sheet
+             , cols = col_n
+             , rows = which(str_detect(df_long_sh_color$item, pattern = text))
+             , style = createStyle(fgFill = colorhex
+                                   ,textDecoration = text_dec_name)
+             )
+      } else if (match == 'starts with') {
+        addStyle(wb_n, sheet
+             , cols = col_n
+             , rows = which(startsWith(df_long_sh_color$item, text))
+             , style = createStyle(fgFill = colorhex
+                                   ,textDecoration = text_dec_name)
+             )
+      } else if (match == 'ends with') {
+        addStyle(wb_n, sheet
+             , cols = col_n
+             , rows = which(endsWith(df_long_sh_color$item, text))
+             , style = createStyle(fgFill = colorhex
+                                   ,textDecoration = text_dec_name)
+             )
+      } else {
+        print('valid match type not determined')
+      }
+    } else if (!is.na(colorhex)) {    #HIGHLIGHT BACKGROUND ONLY
+      if (match == 'equal') {
+        addStyle(wb_n, sheet
+             , cols = col_n
+             , rows = which(df_long_sh_color$item == text)
+             , style = createStyle(fgFill = colorhex)
+             )
+      } else if (match == 'contains') {
+        addStyle(wb_n, sheet
+             , cols = col_n
+             , rows = which(str_detect(df_long_sh_color$item, pattern = text))
+             , style = createStyle(fgFill = colorhex)
+             )
+      } else if (match == 'starts with') {
+        addStyle(wb_n, sheet
+             , cols = col_n
+             , rows = which(startsWith(df_long_sh_color$item, text))
+             , style = createStyle(fgFill = colorhex)
+             )
+      } else if (match == 'ends with') {
+        addStyle(wb_n, sheet
+             , cols = col_n
+             , rows = which(endsWith(df_long_sh_color$item, text))
+             , style = createStyle(fgFill = colorhex)
+             )
+      } else {
+        print('valid match type not determined')
+      }
+    } else if (!is.na(text_dec_name)) {   #DECORATE TEXT ONLY
+      if (match == 'equal') {
+        addStyle(wb_n, sheet
+             , cols = col_n
+             , rows = which(df_long_sh_color$item == text)
+             , style = createStyle(textDecoration = text_dec_name)
+             )
+      } else if (match == 'contains') {
+        addStyle(wb_n, sheet
+             , cols = col_n
+             , rows = which(str_detect(df_long_sh_color$item, pattern = text))
+             , style = createStyle(textDecoration = text_dec_name)
+             )
+      } else if (match == 'starts with') {
+        addStyle(wb_n, sheet
+             , cols = col_n
+             , rows = which(startsWith(df_long_sh_color$item, text))
+             , style = createStyle(textDecoration = text_dec_name)
+             )
+      } else if (match == 'ends with') {
+        addStyle(wb_n, sheet
+             , cols = col_n
+             , rows = which(endsWith(df_long_sh_color$item, text))
+             , style = createStyle(textDecoration = text_dec_name)
+             )
+      } else {
+        print('valid match type not determined')
+      }
+    } else {
+      print('Need to selet a color or text format type')
+    }
+    
+  }
+    
+  
   
   df_long_sh_color = df_long_sh_color_c1
   # style_xlsx(wb, "testing", 1, 'equal', "1 Dozen Eggs", '#ffff00', NA)
