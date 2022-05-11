@@ -274,11 +274,15 @@ ui <- fluidPage(
                  uiOutput("new_item_4a_match_rui"),
                  uiOutput("new_item_4a_text_search_rui"),
                  uiOutput("new_item_4a_text_add_rui"),
+                 uiOutput("emoji_help_4a_rui"),
                  uiOutput("new_item_4a_emoji_rui"),
                  uiOutput("new_item_4a_add_rui"),
                  uiOutput("new_item_4a_row_rui"),
                  uiOutput("new_item_4a_remove_rui"),
                  uiOutput("process_4a_rui"),
+                 h4(uiOutput("step4b")),
+                 h5(uiOutput("step4b_text")),
+                 uiOutput("step4b_process"),
                  h3(uiOutput("step4")),
                  h3(uiOutput("step4_"))
                  
@@ -320,7 +324,7 @@ server <- function(input, output) {
         h6(paste0("Week Number: ",date_df_fltr$week," Season: ",date_df_fltr$season))
       )
       output$help_1b_rui <- renderUI(
-        actionButton("help_1b",paste0(emo::ji('computer_mouse')," Farmigo File Instructions")),
+        actionButton("help_1b",paste0(emo::ji('information')," Farmigo File Instructions")),
       )
       output$file_rui <- renderUI(
         fileInput("file_input", "Choose your file in csv"
@@ -1492,6 +1496,10 @@ server <- function(input, output) {
       )
     )
     
+    output$emoji_help_4a_rui <- renderUI(
+      actionButton("emoji_help_4a", paste0(emo::ji('information'),"Click for Emoji Details"))
+    )
+    
     output$new_item_4a_emoji_rui <- renderUI(
       selectInput("new_item_4a_emoji", "Select Emoji (Optional):"
                   , c(NA, emoji_name_list)
@@ -1543,6 +1551,19 @@ server <- function(input, output) {
   
   df_long_symbol_excel = reactiveValues(data = NA)
   df_long_symbol_openo = reactiveValues(data = NA)
+  
+  ### Emoji Help
+  #####################################################################
+  observeEvent(input$emoji_help_4a,{
+    showModal(modalDialog(
+      title = paste0(emo::ji('information')," Help"),
+      HTML("The Emoji list provided in this dashboard is not comprehensive.<br>
+           If you need more resource options you can first look at all available options <a href='https://github.com/hadley/emo'>here</a><br>
+           If a new Emoji is found that you want in the dashboard let the <p>&#129412;</p> know which one they should add."),
+      easyClose = TRUE
+    ))
+  })
+  
   
   ### Add Item Search  
   #####################################################################
@@ -1735,13 +1756,42 @@ server <- function(input, output) {
                                                 )))
     
     output$step4a = renderText(paste0("Step 4a ",emo::ji('heavy_check_mark')))
+    
+    output$step4b <- renderUI({
+      renderText(paste0("Step 4b ",emo::ji('black_circle')))
+    })
+    
+    output$step4b_text <- renderUI({
+      HTML("Check Emoji/Text Results.<br>
+           <ul>
+            <li>If issues redue Step 4a.
+            <li>If no issues Process Step 4b.
+           <ul>")
+    })
+    output$step4b_process <- renderUI({
+      actionButton("process_4b","Step 4b. Process")
+    })
   })
-
-  ##Finish Off Step 4 with...
-    ##Link and info about seeing all emojis possible
-    ##Step 4b to check work
-    ##Once Checked update statuses to be checked
   
+  observeEvent(input$process_4b,{
+    output$step4b = renderUI(
+      renderText(paste0("Step 4b ",emo::ji('heavy_check_mark')))
+    )
+    
+    output$step4 <- renderUI(
+      renderText(paste0(emo::ji('heavy_check_mark'), " Step 4 is Complete! ",emo::ji('party_popper')))
+    )
+    output$step4_ <- renderUI(
+      renderText(paste0(emo::ji('index_pointing_up'),
+                        emo::ji('index_pointing_up'),
+                        "   GO TO STEP 5 TAB! "
+                        ,emo::ji('index_pointing_up')
+                        ,emo::ji('index_pointing_up')))
+    )
+    
+    # Step 5 setup
+    
+  })
   
   ############## Step 5 (Color / Text Format)  ##############
   #############################################################################################
