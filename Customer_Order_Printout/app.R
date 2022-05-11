@@ -170,6 +170,15 @@ fs_emoji_df = emoji_df_comb |>
 emoji_name_list = fs_emoji_df$emoji
 
 
+format_list = c('italic','bold')
+
+df_format_inputs_orig = data.frame(match_name = c('equal', 'contains')
+                                   ,text_name = c('STANDARD SHARE ITEMS', 'Pickup Time')
+                                   ,format_name = c('bold', 'italic')
+                                   # ,color_name = c()
+                                  )
+
+
 # Define UI for application that draws a histogram
 ui <- fluidPage(
 
@@ -294,7 +303,32 @@ ui <- fluidPage(
              )
              
     ),
-    tabPanel("Step 5 - Check In Sheet"
+    tabPanel("Step 5 - Check In Sheet",
+             sidebarLayout(
+               sidebarPanel(
+                 h4(textOutput("step5a")),
+                 uiOutput("new_item_5a_match_rui"),
+                 uiOutput("new_item_5a_text_search_rui"),
+                 uiOutput("new_item_5a_format_rui"),
+                 uiOutput("color_help_5a_rui"),
+                 uiOutput("new_item_5a_color_rui"),
+                 uiOutput("new_item_5a_add_rui"),
+                 uiOutput("new_item_5a_row_rui"),
+                 uiOutput("new_item_5a_remove_rui"),
+                 uiOutput("process_5a_rui"),
+                 
+                 h4(uiOutput("step5b")),
+                 h5(uiOutput("step5b_text")),
+                 uiOutput("step5b_process"),
+                 h3(uiOutput("step5")),
+                 h3(uiOutput("step5_"))
+                 
+               ),
+               mainPanel(
+                 dataTableOutput("preview5a"),
+                 dataTableOutput("preview5b")
+               )
+             )
     )
     )
 )
@@ -1258,6 +1292,7 @@ server <- function(input, output) {
   # column_print_comb_sheets = reactiveValues(data = NA)
   
   df_symbol_inputs = reactiveValues(data = df_symbol_inputs_orig) # Used in Step 4)
+  df_format_inputs = reactiveValues(data = df_format_inputs_orig) # Used in Step 5)
   
   observeEvent(input$process_3b,{
     
@@ -1791,12 +1826,73 @@ server <- function(input, output) {
     
     # Step 5 setup
     
+    output$new_item_5a_match_rui <- renderUI(
+      selectInput("new_item_5a_match", "Select Match Type (Required):"
+                  , c(NA, match_name_list)
+                  , multiple = FALSE
+      )
+    )
+    
+    output$new_item_5a_text_search_rui <- renderUI(
+      textInput("new_item_5a_text_search", "Text to Search for (Required - Case Sensitive!):"
+      )
+    )
+    
+    output$new_item_5a_format_rui <- renderUI(
+      selectInput("new_item_5a_format", "Select Formatting Type (Optional):"
+                  , c(NA, format_list)
+                  , multiple = FALSE
+      )
+    )
+    
+    # output$color_help_5a_rui <- renderUI(
+    #   actionButton("color_help_5a", paste0(emo::ji('information'),"Click for Color Details"))
+    # )
+    # 
+    # output$new_item_5a_color_rui <- renderUI(
+    #   selectInput("new_item_5a_color", "Select Color (Optional):"
+    #               , c(NA, )
+    #               , multiple = FALSE
+    #   )
+    # )
+    
+    output$new_item_5a_add_rui <- renderUI(
+      actionButton("new_item_5a_add", "Add Item Format Change")
+    )
+    
+    output$new_item_5a_row_rui <- renderUI(
+      selectInput("new_item_5a_row", "Select Search Row Number to Remove"
+                  , c(NA, df_format_inputs$data |> 
+                        select(row_num) |> 
+                        pull()
+                  )
+                  , multiple = FALSE
+      )
+    )
+    
+    output$new_item_5a_remove_rui <- renderUI(
+      actionButton("new_item_5a_remove", "Remove Item Format Change")
+    )
+    
+    output$process_5a_rui <- renderUI(
+      actionButton("process_5a", "Step 5a. Process")
+    )
+    
+    output$preview5a = renderDataTable(datatable(df_format_inputs$data #|> 
+                                                   # select('Match Type' = match_name
+                                                   #        , 'Searched Text' = text_name
+                                                   #        , 'Added Text' = freeform_text
+                                                   #        , Emoji = emoji_name)
+                                                 , options = list(dom = 'ltip'
+                                                                  , pageLength = 5
+                                                                  , lengthMenu = c(5, 10, 15, 20) 
+                                                 )))
   })
   
   ############## Step 5 (Color / Text Format)  ##############
   #############################################################################################
   ###### ENHANCEMENT LIST FOR STEP:
-  
+  df_format_inputs_orig
   
   ### Color Background / Change Text Format
   #####################################################################
