@@ -175,8 +175,9 @@ format_list = c('italic','bold')
 df_format_inputs_orig = data.frame(match_name = c('equal', 'contains')
                                    ,text_name = c('STANDARD SHARE ITEMS', 'Pickup Time')
                                    ,format_name = c('bold', 'italic')
-                                   # ,color_name = c()
-                                  )
+                                   ,color_name = c(NA, NA)
+                                  ) |>  
+  mutate(row_num = row_number())
 
 
 # Define UI for application that draws a histogram
@@ -316,8 +317,10 @@ ui <- fluidPage(
                  uiOutput("new_item_5a_row_rui"),
                  uiOutput("new_item_5a_remove_rui"),
                  uiOutput("process_5a_rui"),
+                 uiOutput("download_5a_excel"),
+                 uiOutput("download_5a_openo"),
                  
-                 h4(uiOutput("step5b")),
+                 #h4(uiOutput("step5b")),
                  h5(uiOutput("step5b_text")),
                  uiOutput("step5b_process"),
                  h3(uiOutput("step5")),
@@ -345,6 +348,9 @@ server <- function(input, output) {
   output$step1b = renderText(paste0("Step 1b ",emo::ji('black_circle')))
   output$step1c = renderText(paste0("Step 1c ",emo::ji('black_circle')))
   
+  week_number = reactiveValues(data = NA)
+  season_number = reactiveValues(data = NA)
+  
   ### Load Data
   #####################################################################
   observeEvent(input$p_file,{
@@ -352,10 +358,14 @@ server <- function(input, output) {
       date_df_fltr = date_df |> 
         filter(date_all == input$date_value) |> 
         select(season, week, date_all) |> 
-        distinct()
+        distinct() |> 
+        mutate(week = ifelse(str_length(week) == 1, paste0('0',week), week))
+      
+      week_number$data = date_df_fltr$week
+      season_number$data = date_df_fltr$season
       
       output$week_value <- renderUI(
-        h6(paste0("Week Number: ",date_df_fltr$week," Season: ",date_df_fltr$season))
+        h6(paste0("Week Number: ",week_number$data," Season: ",season_number$data))
       )
       output$help_1b_rui <- renderUI(
         actionButton("help_1b",paste0(emo::ji('information')," Farmigo File Instructions")),
@@ -1845,16 +1855,16 @@ server <- function(input, output) {
       )
     )
     
-    # output$color_help_5a_rui <- renderUI(
-    #   actionButton("color_help_5a", paste0(emo::ji('information'),"Click for Color Details"))
-    # )
-    # 
-    # output$new_item_5a_color_rui <- renderUI(
-    #   selectInput("new_item_5a_color", "Select Color (Optional):"
-    #               , c(NA, )
-    #               , multiple = FALSE
-    #   )
-    # )
+    output$color_help_5a_rui <- renderUI(
+      actionButton("color_help_5a", paste0(emo::ji('information'),"Click for Color Details"))
+    )
+
+    output$new_item_5a_color_rui <- renderUI(
+      selectInput("new_item_5a_color", "Select Color (Optional):"
+                  , c(NA, '#ffff00')
+                  , multiple = FALSE
+      )
+    )
     
     output$new_item_5a_add_rui <- renderUI(
       actionButton("new_item_5a_add", "Add Item Format Change")
@@ -1878,11 +1888,11 @@ server <- function(input, output) {
       actionButton("process_5a", "Step 5a. Process")
     )
     
-    output$preview5a = renderDataTable(datatable(df_format_inputs$data #|> 
-                                                   # select('Match Type' = match_name
-                                                   #        , 'Searched Text' = text_name
-                                                   #        , 'Added Text' = freeform_text
-                                                   #        , Emoji = emoji_name)
+    output$preview5a = renderDataTable(datatable(df_format_inputs$data |> 
+                                                   select('Match Type' = match_name
+                                                         , 'Searched Text' = text_name
+                                                         , 'Format Type' = format_name
+                                                         , 'Color' = color_name)
                                                  , options = list(dom = 'ltip'
                                                                   , pageLength = 5
                                                                   , lengthMenu = c(5, 10, 15, 20) 
@@ -1892,31 +1902,422 @@ server <- function(input, output) {
   ############## Step 5 (Color / Text Format)  ##############
   #############################################################################################
   ###### ENHANCEMENT LIST FOR STEP:
-  df_format_inputs_orig
   
-  ### Color Background / Change Text Format
+  output$step5a = renderText(paste0("Step 5a ",emo::ji('black_circle')))
+  
+  wb_excel = reactiveValues(data = NA)
+  wb_openo = reactiveValues(data = NA)
+  
+  ### Color Help
   #####################################################################
+  observeEvent(input$color_help_5a,{
+    showModal(modalDialog(
+      title = paste0(emo::ji('information')," Help"),
+      HTML("The Color list provided in this dashboard is not comprehensive.<br>
+           If you need more resource options you can.... <br>
+           If a new Color is found that you want in the dashboard let the <p>&#129412;</p> know which one they should add."),
+      easyClose = TRUE
+    ))
+  })
+
+  ### Add Item Format  
+  #####################################################################
+  observeEvent(input$new_item_5a_add,{
+    if (input$new_item_5a_match == 'NA') {
+      showModal(modalDialog(
+        title = paste0(emo::ji('stop_sign')," Error"),
+        HTML("Before adding a new text Format to change the <b>Match Type</b> field needs to not show as <u>NA</u>."),
+        easyClose = TRUE
+      ))
+    } else if (input$new_item_5a_text_search == '') {
+      showModal(modalDialog(
+        title = paste0(emo::ji('stop_sign')," Error"),
+        HTML("Before adding a new text Format to change the <b>Text to Search</b> field needs to not show as <u>blank</u>."),
+        easyClose = TRUE
+      ))
+    } else if (input$new_item_5a_format == 'NA' & input$new_item_5a_color == 'NA') {
+      showModal(modalDialog(
+        title = paste0(emo::ji('stop_sign')," Error"),
+        HTML("Before adding a new text Format to change the <b>Format Type</b> field needs to not show as <u>NA</u><br>
+             OR<br>
+             The <b>Color</b> dropdown needs to not show as <u>NA</u>"),
+        easyClose = TRUE
+      ))
+    } else {
+      ## add data
+      if (input$new_item_5a_format == 'NA') {
+        df_format_in1 = df_format_inputs$data |> 
+          select(-row_num) |> 
+          rbind(
+            data.frame(match_name = c(input$new_item_5a_match)
+                       ,text_name = c(input$new_item_5a_text_search)
+                       ,format_name = c(NA)
+                       ,color_name = c(input$new_item_5a_color)
+            ) 
+          ) |>  
+          distinct() |> 
+          mutate(row_num = row_number())
+      } else if (input$new_item_5a_color == 'NA') {
+        df_format_in1 = df_format_inputs$data |> 
+          select(-row_num) |> 
+          rbind(
+            data.frame(match_name = c(input$new_item_5a_match)
+                       ,text_name = c(input$new_item_5a_text_search)
+                       ,format_name = c(input$new_item_5a_format)
+                       ,color_name = c(NA)
+            ) 
+          ) |>  
+          distinct() |> 
+          mutate(row_num = row_number())
+      } else {
+        df_format_in1 = df_format_inputs$data |> 
+          select(-row_num) |> 
+          rbind(
+            data.frame(match_name = c(input$new_item_5a_match)
+                       ,text_name = c(input$new_item_5a_text_search)
+                       ,format_name = c(input$new_item_5a_format)
+                       ,color_name = c(input$new_item_5a_color)
+            )
+          ) |>  
+          distinct() |> 
+          mutate(row_num = row_number())
+      }
+      #update drop down row # for remove
+      output$new_item_5a_row_rui <- renderUI(
+        selectInput("new_item_5a_row", "Select Search Row Number to Remove"
+                    , c(NA, df_format_in1 |> 
+                          select(row_num) |> 
+                          pull()
+                    )
+                    , multiple = FALSE
+        )
+      )
+      #update chart
+      output$preview5a = renderDataTable(datatable(df_format_in1 |> 
+                                                     select('Match Type' = match_name
+                                                            , 'Searched Text' = text_name
+                                                            , 'Format Type' = format_name
+                                                            , 'Color' = color_name)
+                                                   , options = list(dom = 'ltip'
+                                                                    , pageLength = 5
+                                                                    , lengthMenu = c(5, 10, 15, 20) 
+                                                   )))
+      df_format_inputs$data = df_format_in1
+    }
+    
+  })
   
+  ### Remove Item Format
+  #####################################################################
+  observeEvent(input$new_item_5a_remove,{
+    if (input$new_item_5a_row == 'NA') {
+      showModal(modalDialog(
+        title = paste0(emo::ji('stop_sign')," Error"),
+        HTML("Before removing a text search line the <b>Select Search Row Number to Remove</b> field needs to not show as <u>NA</u>."),
+        easyClose = TRUE
+      ))
+    } else {
+      df_format_in2 = df_format_inputs$data |> 
+        filter(row_num != input$new_item_5a_row) |> 
+        select(-row_num) |> 
+        distinct() |> 
+        mutate(row_num = row_number())
+      
+      #update drop down row # for remove
+      output$new_item_5a_row_rui <- renderUI(
+        selectInput("new_item_5a_row", "Select Format Row Number to Remove"
+                    , c(NA, df_format_in2 |> 
+                          select(row_num) |> 
+                          pull()
+                    )
+                    , multiple = FALSE
+        )
+      )
+      
+      #update chart
+      output$preview5a = renderDataTable(datatable(df_format_in2 |> 
+                                                     select('Match Type' = match_name
+                                                            , 'Searched Text' = text_name
+                                                            , 'Format Type' = format_name
+                                                            , 'Color' = color_name)
+                                                   , options = list(dom = 'ltip'
+                                                                    , pageLength = 5
+                                                                    , lengthMenu = c(5, 10, 15, 20) 
+                                                   )))
+      df_format_inputs$data = df_format_in2
+    }
+    
+  })   
+  
+  ### Process Color Background / Change Text Format
+  #####################################################################
+  observeEvent(input$process_5a,{
+    ## Create function to do color or text change based on search criteria in item
+    workbook_created = function(data, width, height) {
+      df_long_sh_color_c1 = data |> 
+        filter(column == 1) |> 
+        left_join(sh_shares_shrt
+                  , by = c('group_name')
+        ) |> 
+        mutate(highlight_color_hex = ifelse(rank <= 0, highlight_color_hex, NA))
+      
+      df_long_sh_color_c2 = data |> 
+        filter(column == 2) |> 
+        left_join(sh_shares_shrt
+                  , by = c('group_name')
+        ) |> 
+        mutate(highlight_color_hex = ifelse(rank <= 0, highlight_color_hex, NA))
+      
+      
+      write_df = df_long_sh_color_c1 |>
+        mutate(item_symbol = ifelse(rank == -1
+                                    , paste0(item_symbol, ' (',season_number$data,'.',week_number$data, ' - ', input$date_value,')')
+                                    , item_symbol)
+        ) |> 
+        select(item_1 = item_symbol) |>
+        cbind(
+          df_long_sh_color_c2 |>
+            mutate(item_symbol = ifelse(rank == -1
+                                        , paste0(item_symbol, ' (',season_number$data,'.',week_number$data, ' - ', input$date_value,')')
+                                        , item_symbol)
+            ) |> 
+            select(item_2 = item_symbol)
+        )
+      
+      wb <- createWorkbook(title = 'TestFile')
+      addWorksheet(wb, "testing")
+      writeData(wb, "testing", write_df, colNames = FALSE)
+      
+      setColWidths(wb, "testing", cols = 1:2, widths = width)
+      setRowHeights(wb, "testing", rows = (dim(data)[1]/2), heights = height)
+      modifyBaseFont(wb, fontSize = 12, fontColour = "black", fontName = "Calibri")
+      
+      ## Coloring each Group and Member names based on Google Sheet 
+      
+      #### Column 1
+      test_color_c1 = df_long_sh_color_c1 |> 
+        mutate(ss_cell = row_number()) |> 
+        filter(!is.na(highlight_color_hex)) 
+      
+      for (i in (test_color_c1 |> select(highlight_color_hex) |> distinct() |> pull())) {
+        print(i)
+        bhfill_style <- createStyle(bgFill = i, textDecoration = "bold")
+        
+        for (j in (test_color_c1 |> filter(highlight_color_hex == i) |> select(ss_cell) |> distinct() |> pull())) {
+          conditionalFormatting(wb, "testing", rule = "!=0", cols = 1, rows = j, style = bhfill_style)
+          addStyle(wb, "testing", cols = 1, rows = j, style = createStyle(halign = "center"))
+        }
+        
+      }
+      
+      #### Column 2
+      test_color_c2 = df_long_sh_color_c2 |> 
+        mutate(ss_cell = row_number()) |> 
+        filter(!is.na(highlight_color_hex)) 
+      
+      for (i in (test_color_c2 |> select(highlight_color_hex) |> distinct() |> pull())) {
+        print(i)
+        bhfill_style <- createStyle(bgFill = i, textDecoration = "bold")
+        
+        for (j in (test_color_c2 |> filter(highlight_color_hex == i) |> select(ss_cell) |> distinct() |> pull())) {
+          conditionalFormatting(wb, "testing", rule = "!=0", cols = 2, rows = j, style = bhfill_style)
+          addStyle(wb, "testing", cols = 2, rows = j, style = createStyle(halign = "center"))
+        }
+        
+      }
+      
+      ## Bold each item if its in the Standard Item List for that group
+      
+      bold_stndrd_item_c1 = df_long_sh_color_c1 |> 
+        mutate(ss_cell = row_number()) |> 
+        filter(!is.na(standard_item)) 
+      
+      for (j in (bold_stndrd_item_c1 |> select(ss_cell) |> distinct() |> pull())) {
+        bhfill_style <- createStyle(textDecoration = "bold")
+        conditionalFormatting(wb, "testing", rule = "!=0", cols = 1, rows = j, style = bhfill_style)
+      }
+      
+      bold_stndrd_item_c2 = df_long_sh_color_c2 |> 
+        mutate(ss_cell = row_number()) |> 
+        filter(!is.na(standard_item)) 
+      
+      for (j in (bold_stndrd_item_c2 |> select(ss_cell) |> distinct() |> pull())) {
+        bhfill_style <- createStyle(textDecoration = "bold")
+        conditionalFormatting(wb, "testing", rule = "!=0", cols = 2, rows = j, style = bhfill_style)
+      }
+      
+      
+      style_xlsx = function(wb_n, sheet, col_n, match, text, colorhex, text_dec_name) {
+        if (!is.na(colorhex) & !is.na(text_dec_name)) {  #HIGHLIGHT BACKGROUND AND DECORATE TEXT
+          if (match == 'equal') {
+            addStyle(wb_n, sheet
+                     , cols = col_n
+                     , rows = which(df_long_sh_color$item == text)
+                     , style = createStyle(fgFill = colorhex
+                                           ,textDecoration = text_dec_name)
+            )
+          } else if (match == 'contains') {
+            addStyle(wb_n, sheet
+                     , cols = col_n
+                     , rows = which(str_detect(df_long_sh_color$item, pattern = text))
+                     , style = createStyle(fgFill = colorhex
+                                           ,textDecoration = text_dec_name)
+            )
+          } else if (match == 'starts with') {
+            addStyle(wb_n, sheet
+                     , cols = col_n
+                     , rows = which(startsWith(df_long_sh_color$item, text))
+                     , style = createStyle(fgFill = colorhex
+                                           ,textDecoration = text_dec_name)
+            )
+          } else if (match == 'ends with') {
+            addStyle(wb_n, sheet
+                     , cols = col_n
+                     , rows = which(endsWith(df_long_sh_color$item, text))
+                     , style = createStyle(fgFill = colorhex
+                                           ,textDecoration = text_dec_name)
+            )
+          } else {
+            print('valid match type not determined')
+          }
+        } else if (!is.na(colorhex)) {    #HIGHLIGHT BACKGROUND ONLY
+          if (match == 'equal') {
+            addStyle(wb_n, sheet
+                     , cols = col_n
+                     , rows = which(df_long_sh_color$item == text)
+                     , style = createStyle(fgFill = colorhex)
+            )
+          } else if (match == 'contains') {
+            addStyle(wb_n, sheet
+                     , cols = col_n
+                     , rows = which(str_detect(df_long_sh_color$item, pattern = text))
+                     , style = createStyle(fgFill = colorhex)
+            )
+          } else if (match == 'starts with') {
+            addStyle(wb_n, sheet
+                     , cols = col_n
+                     , rows = which(startsWith(df_long_sh_color$item, text))
+                     , style = createStyle(fgFill = colorhex)
+            )
+          } else if (match == 'ends with') {
+            addStyle(wb_n, sheet
+                     , cols = col_n
+                     , rows = which(endsWith(df_long_sh_color$item, text))
+                     , style = createStyle(fgFill = colorhex)
+            )
+          } else {
+            print('valid match type not determined')
+          }
+        } else if (!is.na(text_dec_name)) {   #DECORATE TEXT ONLY
+          if (match == 'equal') {
+            addStyle(wb_n, sheet
+                     , cols = col_n
+                     , rows = which(df_long_sh_color$item == text)
+                     , style = createStyle(textDecoration = text_dec_name)
+            )
+          } else if (match == 'contains') {
+            addStyle(wb_n, sheet
+                     , cols = col_n
+                     , rows = which(str_detect(df_long_sh_color$item, pattern = text))
+                     , style = createStyle(textDecoration = text_dec_name)
+            )
+          } else if (match == 'starts with') {
+            addStyle(wb_n, sheet
+                     , cols = col_n
+                     , rows = which(startsWith(df_long_sh_color$item, text))
+                     , style = createStyle(textDecoration = text_dec_name)
+            )
+          } else if (match == 'ends with') {
+            addStyle(wb_n, sheet
+                     , cols = col_n
+                     , rows = which(endsWith(df_long_sh_color$item, text))
+                     , style = createStyle(textDecoration = text_dec_name)
+            )
+          } else {
+            print('valid match type not determined')
+          }
+        } else {
+          print('Need to selet a color or text format type')
+        }
+        
+      }
+      
+      df_long_sh_color = df_long_sh_color_c1
+      for (i in 1:dim(df_format_inputs$data)[1]) {
+        df_l = df_format_inputs$data
+        print(i)
+        style_xlsx(wb, "testing", 1, df_l$match_type[i], df_l$text_name[i], df_l$format_name[i], df_l$color_name[i])
+        
+      }
+      # style_xlsx(wb, "testing", 1, 'equal', "STANDARD SHARE ITEMS", NA, 'bold')
+      # style_xlsx(wb, "testing", 1, 'contains', "Pickup Time", NA, 'italic')
+      # 
+      df_long_sh_color = df_long_sh_color_c2
+      for (i in 1:dim(df_format_inputs$data)[1]) {
+        df_l = df_format_inputs$data
+        style_xlsx(wb, "testing", 1, df_l$match_type[i], df_l$text_name[i], df_l$format_name[i], df_l$color_name[i])
+      }
+      # style_xlsx(wb, "testing", 2, 'equal', "STANDARD SHARE ITEMS", NA, 'bold')
+      # style_xlsx(wb, "testing", 2, 'contains', "Pickup Time", NA, 'italic')
+      
+      return(wb)
+    }
+    
+    wb_excel$data = workbook_created(df_long_symbol_excel$data, 39, 24)
+    wb_openo$data = workbook_created(df_long_symbol_openo$data, 39, 30)
+    
+    output$download_5a_excel <- renderUI({
+      output$download_excel = downloadHandler(
+        filename = function() {
+          paste0('print_excel_',input$date_value,'.xlsx')
+        },
+        content = function(file) {
+          saveWorkbook(wb_excel$data, file, overwrite = TRUE)
+        }
+      )
+      
+      downloadButton("download_excel", label = "Excel Download", class = "btn-block")
+    })
+    
+    output$download_5a_openo <- renderUI({
+      output$download_openo = downloadHandler(
+        filename = function() {
+          paste0('print_openo_',input$date_value,'.xlsx')
+        },
+        content = function(file) {
+          saveWorkbook(wb_openo$data, file, overwrite = TRUE)
+        }
+      )
+      
+      downloadButton("download_openo", label = "Open Office Download", class = "btn-block")
+    })
+    
+    output$step5b_text <- renderUI({
+      HTML("Download and Check Format Results.<br>
+           <ul>
+            <li>If issues redue Step 5a.
+            <li>If no issues you can print. 
+           <ul>")
+    })
+    
+    output$step5 <- renderUI(
+      renderText(paste0(emo::ji('heavy_check_mark'), " Step 5 is Complete! ",emo::ji('party_popper')))
+    )
+    output$step5_ <- renderUI(
+      renderText(paste0(emo::ji('partying_face'),
+                        emo::ji('partying_face'),
+                        " DONE WITH DASHBOARD! "
+                        ,emo::ji('partying_face')
+                        ,emo::ji('partying_face')))
+    )
+    
+  })
   
   ### Review Results (View??? / Download) 
   #####################################################################
-  
-  
-  ## Step 5 (Final checks / Print)
-  
+  ### Need to update function to actually change formatting. Not using actual format DF today. ERROR RIGHT NOW
   ### Can we use Openxlsx(wb) to see the file in the last step?
   
-  ### Get download. Question: Can you open Excel on computer?
-  
-  #### Yes. Excel version downloaded. Done
-  
-  #### No. Google Sheet Excel version downloaded
-  
-  ##### Then an upload action to grab the file just downloaded
-  
-  ##### Action would be to take that file and upload it to google drive with the correct spacing. 
-  
-  ##### Share link or view in RShiny. Done
   
 
   
