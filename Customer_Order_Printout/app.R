@@ -1492,7 +1492,7 @@ server <- function(input, output) {
     }
     
     column_print_comb_excel$data = optimize_columns(df_long_del$data, 46)
-    column_print_comb_openo$data = optimize_columns(df_long_del$data, 47)
+    column_print_comb_openo$data = optimize_columns(df_long_del$data, 46)
     # column_print_comb_sheets = optimize_columns(df_long_del$data, 47)
     
     output$preview3 = renderDataTable(datatable(column_print_comb_excel$data |>
@@ -2245,21 +2245,14 @@ server <- function(input, output) {
       df_long_sh_color = df_long_sh_color_c1
       for (i in 1:dim(df_format_inputs$data)[1]) {
         df_l = df_format_inputs$data
-        print(i)
-        style_xlsx(wb, "testing", 1, df_l$match_type[i], df_l$text_name[i], df_l$format_name[i], df_l$color_name[i])
-        
+        style_xlsx(wb, "testing", 1, df_l$match_name[i], df_l$text_name[i], df_l$color_name[i], df_l$format_name[i])
+
       }
-      # style_xlsx(wb, "testing", 1, 'equal', "STANDARD SHARE ITEMS", NA, 'bold')
-      # style_xlsx(wb, "testing", 1, 'contains', "Pickup Time", NA, 'italic')
-      # 
       df_long_sh_color = df_long_sh_color_c2
       for (i in 1:dim(df_format_inputs$data)[1]) {
         df_l = df_format_inputs$data
-        style_xlsx(wb, "testing", 1, df_l$match_type[i], df_l$text_name[i], df_l$format_name[i], df_l$color_name[i])
+        style_xlsx(wb, "testing", 2, df_l$match_name[i], df_l$text_name[i], df_l$color_name[i], df_l$format_name[i]) 
       }
-      # style_xlsx(wb, "testing", 2, 'equal', "STANDARD SHARE ITEMS", NA, 'bold')
-      # style_xlsx(wb, "testing", 2, 'contains', "Pickup Time", NA, 'italic')
-      
       return(wb)
     }
     
