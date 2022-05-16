@@ -237,7 +237,8 @@ ui <- fluidPage(
         mainPanel(
           splitLayout(tableOutput("preview2")
                       ,dataTableOutput("standard_members")),
-          uiOutput("filter_item_2a_rui"),
+          splitLayout(uiOutput("filter1_item_2a_rui")
+                      ,uiOutput("filter2_item_2a_rui")),
           uiOutput("preview2a")
         )
       )
@@ -400,7 +401,7 @@ server <- function(input, output) {
       4. Select the 'Delivery date' of interest <br>
       5. All 'Routes' should be selected <br>
       6. 'Store Orders and Subscriptions' should be selected under 'Items Type'<br>
-      7. 'Contact details' should be left off the download<br>
+      7. Do NOT include 'Contact details'<br>
       8. Click 'Download CSV' <br>
       9. Once downloaded you can click 'Dismiss' on this message and 'Browse' for this new file in the dashboard
       "),
@@ -671,6 +672,8 @@ server <- function(input, output) {
     ## TAB OVER THE FILTERS AND ADD MEMBER BUTTONS
     ## ADD AN EMOJI TO THE ADD MEMBER ACTION BUTTON
     ## PLAY WITH MAIN PAGE FORMATTING SO ALL CHARTS AND FILTER LOOK NICE
+    ##NEED TO PLAY WITH THE SEARCH TEXT BEING OVER ALL THREE SEARCH OPTIONS
+    ## ADD A THIRD SEARCH OPTION
   
   
   ## Step 2 - Inputs
@@ -699,9 +702,15 @@ server <- function(input, output) {
       
     })
 
-    output$filter_item_2a_rui <- renderUI({ 
-      textInput("standard_item_search"
-                , "Search member's carts which contain the following text (not case sensitive):"
+    output$filter1_item_2a_rui <- renderUI({ 
+      textInput("standard_item_search1"
+                , "1. Search member's carts which containing text (not case sensitive):"
+                , value = '')
+    })
+    
+    output$filter2_item_2a_rui <- renderUI({ 
+      textInput("standard_item_search2"
+                , "2. Search member's carts which containing text (not case sensitive):"
                 , value = '')
     })
     
@@ -714,10 +723,38 @@ server <- function(input, output) {
                    , by = c('group_name')
         )
      
-     if (input$standard_item_search != '') {
+     if (input$standard_item_search1 != '' & input$standard_item_search2 != '') {
        standard_share_search = filter_df |>
          inner_join(filter_df |> 
-                      filter(str_detect(tolower(item_original), tolower(input$standard_item_search))) |> 
+                      filter(str_detect(tolower(item_original), tolower(input$standard_item_search1))) |> 
+                      select(name_long) |> 
+                      distinct()
+                    , by = c('name_long')
+         ) |> 
+         inner_join(filter_df |> 
+                      filter(str_detect(tolower(item_original), tolower(input$standard_item_search2))) |> 
+                      select(name_long) |> 
+                      distinct()
+                    , by = c('name_long')
+         ) |>
+         select('Group Name' = group_name
+                , 'Name and Id' = name_long
+                , Description = item_original)
+     } else if (input$standard_item_search1 != '') {
+       standard_share_search = filter_df |>
+         inner_join(filter_df |> 
+                      filter(str_detect(tolower(item_original), tolower(input$standard_item_search1))) |> 
+                      select(name_long) |> 
+                      distinct()
+                    , by = c('name_long')
+         ) |> 
+         select('Group Name' = group_name
+                , 'Name and Id' = name_long
+                , Description = item_original)
+     } else if (input$standard_item_search2 != '') {
+       standard_share_search = filter_df |>
+         inner_join(filter_df |> 
+                      filter(str_detect(tolower(item_original), tolower(input$standard_item_search2))) |> 
                       select(name_long) |> 
                       distinct()
                     , by = c('name_long')
@@ -732,7 +769,7 @@ server <- function(input, output) {
                 , Description = item_original)
      }
     
-      renderDataTable(datatable(standard_share_search, options = list(dom = 'ltipr')))
+      renderDataTable(datatable(standard_share_search, options = list(dom = 'ltipr', pageLength = 100)))
     })
     
     output$update_table_2a_rui <- renderUI({ 
@@ -1902,6 +1939,10 @@ server <- function(input, output) {
   ############## Step 5 (Color / Text Format)  ##############
   #############################################################################################
   ###### ENHANCEMENT LIST FOR STEP:
+     ##SHARE FINAL VIEW OF EXCEL WITH FORMATTING CHANGES
+     ## ADD THE DATA FRAME SHOWING MEMBER REDUCTION TOTALS TO SHOW SOMETHING IF RESULT ABOVE FAILS
+     ##ADD PROGRESS BAR TO FORMATTING SINCE THIS TAKES SOME TIME TO COMPLETE
+     ##ADD COLOR OPTIONS THAT ACTUALLY SHOW THE COLOR AND NOT JUST THE HEX VALUES. 
   
   output$step5a = renderText(paste0("Step 5a ",emo::ji('black_circle')))
   
@@ -2305,14 +2346,6 @@ server <- function(input, output) {
     )
     
   })
-  
-  ### Review Results (View??? / Download) 
-  #####################################################################
-  ### Need to update function to actually change formatting. Not using actual format DF today. ERROR RIGHT NOW
-  ### Can we use Openxlsx(wb) to see the file in the last step?
-  
-  
-
   
   ##Move this up (Delete step) or remove entirely???
   #### Member Count - End
