@@ -237,8 +237,10 @@ ui <- fluidPage(
         mainPanel(
           splitLayout(tableOutput("preview2")
                       ,dataTableOutput("standard_members")),
+          h4(uiOutput("filter_2a_test_rui")),
           splitLayout(uiOutput("filter1_item_2a_rui")
-                      ,uiOutput("filter2_item_2a_rui")),
+                      ,uiOutput("filter2_item_2a_rui")
+                      ,uiOutput("filter3_item_2a_rui")),
           uiOutput("preview2a")
         )
       )
@@ -702,15 +704,25 @@ server <- function(input, output) {
       
     })
 
+    output$filter_2a_test_rui <- renderUI({
+      renderText("Search member's carts which containing text (not case sensitive):")
+    })
+    
     output$filter1_item_2a_rui <- renderUI({ 
       textInput("standard_item_search1"
-                , "1. Search member's carts which containing text (not case sensitive):"
+                , "1. Search term:"
                 , value = '')
     })
     
     output$filter2_item_2a_rui <- renderUI({ 
       textInput("standard_item_search2"
-                , "2. Search member's carts which containing text (not case sensitive):"
+                , "2. Search term:"
+                , value = '')
+    })
+    
+    output$filter3_item_2a_rui <- renderUI({ 
+      textInput("standard_item_search3"
+                , "3. Search term:"
                 , value = '')
     })
     
@@ -723,7 +735,9 @@ server <- function(input, output) {
                    , by = c('group_name')
         )
      
-     if (input$standard_item_search1 != '' & input$standard_item_search2 != '') {
+     if (input$standard_item_search1 != '' 
+          & input$standard_item_search2 != ''
+          & input$standard_item_search3 != '') {
        standard_share_search = filter_df |>
          inner_join(filter_df |> 
                       filter(str_detect(tolower(item_original), tolower(input$standard_item_search1))) |> 
@@ -733,6 +747,66 @@ server <- function(input, output) {
          ) |> 
          inner_join(filter_df |> 
                       filter(str_detect(tolower(item_original), tolower(input$standard_item_search2))) |> 
+                      select(name_long) |> 
+                      distinct()
+                    , by = c('name_long')
+         ) |> 
+         inner_join(filter_df |> 
+                      filter(str_detect(tolower(item_original), tolower(input$standard_item_search3))) |> 
+                      select(name_long) |> 
+                      distinct()
+                    , by = c('name_long')
+         ) |>
+         select('Group Name' = group_name
+                , 'Name and Id' = name_long
+                , Description = item_original)
+     } else if (input$standard_item_search1 != '' 
+                & input$standard_item_search2 != '') {
+       standard_share_search = filter_df |>
+         inner_join(filter_df |> 
+                      filter(str_detect(tolower(item_original), tolower(input$standard_item_search1))) |> 
+                      select(name_long) |> 
+                      distinct()
+                    , by = c('name_long')
+         ) |> 
+         inner_join(filter_df |> 
+                      filter(str_detect(tolower(item_original), tolower(input$standard_item_search2))) |> 
+                      select(name_long) |> 
+                      distinct()
+                    , by = c('name_long')
+         ) |>
+         select('Group Name' = group_name
+                , 'Name and Id' = name_long
+                , Description = item_original)
+     } else if (input$standard_item_search1 != '' 
+                & input$standard_item_search3 != '') {
+       standard_share_search = filter_df |>
+         inner_join(filter_df |> 
+                      filter(str_detect(tolower(item_original), tolower(input$standard_item_search1))) |> 
+                      select(name_long) |> 
+                      distinct()
+                    , by = c('name_long')
+         ) |> 
+         inner_join(filter_df |> 
+                      filter(str_detect(tolower(item_original), tolower(input$standard_item_search3))) |> 
+                      select(name_long) |> 
+                      distinct()
+                    , by = c('name_long')
+         ) |>
+         select('Group Name' = group_name
+                , 'Name and Id' = name_long
+                , Description = item_original)
+     } else if (input$standard_item_search2 != ''
+                & input$standard_item_search3 != '') {
+       standard_share_search = filter_df |>
+         inner_join(filter_df |> 
+                      filter(str_detect(tolower(item_original), tolower(input$standard_item_search2))) |> 
+                      select(name_long) |> 
+                      distinct()
+                    , by = c('name_long')
+         ) |> 
+         inner_join(filter_df |> 
+                      filter(str_detect(tolower(item_original), tolower(input$standard_item_search3))) |> 
                       select(name_long) |> 
                       distinct()
                     , by = c('name_long')
@@ -755,6 +829,17 @@ server <- function(input, output) {
        standard_share_search = filter_df |>
          inner_join(filter_df |> 
                       filter(str_detect(tolower(item_original), tolower(input$standard_item_search2))) |> 
+                      select(name_long) |> 
+                      distinct()
+                    , by = c('name_long')
+         ) |> 
+         select('Group Name' = group_name
+                , 'Name and Id' = name_long
+                , Description = item_original)
+     } else if (input$standard_item_search3 != '') {
+       standard_share_search = filter_df |>
+         inner_join(filter_df |> 
+                      filter(str_detect(tolower(item_original), tolower(input$standard_item_search3))) |> 
                       select(name_long) |> 
                       distinct()
                     , by = c('name_long')
