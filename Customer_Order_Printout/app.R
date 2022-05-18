@@ -2,7 +2,6 @@
 # This is the final Dashboard that Fair Shares employees will use to create the customer order printouts
 #
 
-
 library(shiny)
 library(tidyverse)
 library(DT)
@@ -222,7 +221,7 @@ ui <- fluidPage(
         sidebarPanel(
           h4(textOutput("step2a")),
           selectInput("group_2a","Select Food List Group:"
-                      , food_list_group_name
+                      , sort(food_list_group_name)
                       , multiple = FALSE),
           uiOutput("members_2a_rui"),
           selectInput("keep_2a","Leave Member in Final Printout?"
@@ -343,9 +342,10 @@ ui <- fluidPage(
 server <- function(input, output) {
 
   ############## Step 1 (Load Data)  ##############
-  #############################################################################################
+  #####################################################################
   ###### ENHANCEMENT LIST FOR STEP:
-    ## Play with Side bar % if other steps also change this to fit charts better
+    ##Play with Side bar % if other steps also change this to fit charts better
+    ##Add an example file to download to help people practice using the tool
   
   output$step1a = renderText(paste0("Step 1a ",emo::ji('black_circle')))
   output$step1b = renderText(paste0("Step 1b ",emo::ji('black_circle')))
@@ -674,8 +674,13 @@ server <- function(input, output) {
     ## TAB OVER THE FILTERS AND ADD MEMBER BUTTONS
     ## ADD AN EMOJI TO THE ADD MEMBER ACTION BUTTON
     ## PLAY WITH MAIN PAGE FORMATTING SO ALL CHARTS AND FILTER LOOK NICE
-    ##NEED TO PLAY WITH THE SEARCH TEXT BEING OVER ALL THREE SEARCH OPTIONS
-    ## ADD A THIRD SEARCH OPTION
+    ##Add ability to manually pick items for standard share
+    ## 1. Remove Member Name from list button necessary
+    ## 2. Item drop down list required with NA at beginning (error if button selected when NA)
+    ## 3. Button to add item to data frame
+    ## 4. Drop down of items to remove
+    ## 5. Button to remove item from data frame
+    ## Figure out logic to add this new member in to process BUT not in the end result to print
   
   
   ## Step 2 - Inputs
@@ -1078,6 +1083,7 @@ server <- function(input, output) {
   ############## Step 3 (Delete Items)  ##############
   #############################################################################################
   ###### ENHANCEMENT LIST FOR STEP:
+    ##Formatting to be able to view all dataframes easier
   
   output$step3a = renderText(paste0("Step 3a ",emo::ji('black_circle')))
   
@@ -1711,7 +1717,7 @@ server <- function(input, output) {
   ############## Step 4 (Add Text/Emojis)  ##############
   #############################################################################################
   ###### ENHANCEMENT LIST FOR STEP:
-      ## Add in to the searched text the Row Count found after processed
+     ##Add in to the searched text the Row Count found after processed
   
   
   output$step4a = renderText(paste0("Step 4a ",emo::ji('black_circle')))
@@ -2028,6 +2034,7 @@ server <- function(input, output) {
      ## ADD THE DATA FRAME SHOWING MEMBER REDUCTION TOTALS TO SHOW SOMETHING IF RESULT ABOVE FAILS
      ##ADD PROGRESS BAR TO FORMATTING SINCE THIS TAKES SOME TIME TO COMPLETE
      ##ADD COLOR OPTIONS THAT ACTUALLY SHOW THE COLOR AND NOT JUST THE HEX VALUES. 
+     ##Add in to the searched text the Row Count found after processed
   
   output$step5a = renderText(paste0("Step 5a ",emo::ji('black_circle')))
   
@@ -2418,6 +2425,8 @@ server <- function(input, output) {
             <li>If no issues you can print. 
            <ul>")
     })
+    
+    output$step5a = renderText(paste0("Step 5a ",emo::ji('heavy_check_mark')))
     
     output$step5 <- renderUI(
       renderText(paste0(emo::ji('heavy_check_mark'), " Step 5 is Complete! ",emo::ji('party_popper')))
