@@ -23,8 +23,8 @@ library(emo)
 ## load data file
 
 ```{r}
-date = '05_12_2022'
-week = 'Wk 8'
+date = '05_18_2022'
+week = 'Wk 9'
 
 order_only_list = c('1 No Share - Order Only (even wk)',
                     '1 No Share - Order Only (odd wk)',
@@ -269,35 +269,35 @@ df_long_tm |>
 
 ############################################################
 
-# #Wednesday
-# group_a_stndrd = 'Han, Martha [10]'     #Foster, Bill
-# group_h_stndrd = 'Sabo, Stephanie [54]'    #Block, Chantal
-# group_c_stndrd = 'Coolman, Audrey [67]'
-# group_m_stndrd = 'Crooks, Carol [95]'     #Biundo (staff), Rebecca
-# group_u_stndrd = 'McDaniel, Jennifer [147]'       #Karch/Slocum, Eric and Lee
-# 
-# #Wednesday
-# group_a_keep = TRUE
-# group_h_keep = TRUE
-# group_c_keep = TRUE
-# group_m_keep = TRUE
-# group_u_keep = TRUE
+#Wednesday
+group_a_stndrd = 'Picker, Don Knobbe and Lisa [20]'     #Foster, Bill
+group_h_stndrd = 'Johnson, Sara [46]'    #Block, Chantal
+group_c_stndrd = 'Coolman, Audrey [69]'
+group_m_stndrd = 'Bohn, Michelle [90]'     #Biundo (staff), Rebecca
+group_u_stndrd = 'Auffenberg, Carolyn [132]'       #Karch/Slocum, Eric and Lee
 
-############################################################
-
-#Thursday
-group_a_stndrd = 'Garrett, Elizabeth/Kelly [32]'
-group_h_stndrd = 'Wippermann, Jennifer [146]'     #Rothgangel, Ella    #Kinman, Tricia 
-group_c_stndrd = 'Gaston, Sarah [7]'               #Kruszynski, Stacy
-group_m_stndrd = 'Cordia, Wendy [81]'                #Karr, Mary
-group_u_stndrd = 'Lampitt, Maggie [121]'             #Arbanas, Michael
-
-#Thursday
+#Wednesday
 group_a_keep = TRUE
-group_h_keep = NA
+group_h_keep = TRUE
 group_c_keep = TRUE
 group_m_keep = TRUE
 group_u_keep = TRUE
+
+############################################################
+
+# #Thursday
+# group_a_stndrd = 'Garrett, Elizabeth/Kelly [32]'
+# group_h_stndrd = 'Wippermann, Jennifer [146]'     #Rothgangel, Ella    #Kinman, Tricia 
+# group_c_stndrd = 'Gaston, Sarah [7]'               #Kruszynski, Stacy
+# group_m_stndrd = 'Cordia, Wendy [81]'                #Karr, Mary
+# group_u_stndrd = 'Lampitt, Maggie [121]'             #Arbanas, Michael
+# 
+# #Thursday
+# group_a_keep = TRUE
+# group_h_keep = NA
+# group_c_keep = TRUE
+# group_m_keep = TRUE
+# group_u_keep = TRUE
 
 ############################################################
 
