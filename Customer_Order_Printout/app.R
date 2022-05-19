@@ -7,9 +7,13 @@ library(tidyverse)
 library(DT)
 library(lubridate)
 library(googlesheets4)
-library(openxlsx)
-library(emoji)
+library(openxlsx)      #used for creating/customizing Excel file in easy way 
+library(emoji)         #used for emoji creation/reading
 library(emo)
+library(readxl)        #necessary for writing/reading csv/excel files for test files
+library(colourpicker)  #used for color picking in formatting step
+library(bslib)         #used for dark theme
+library(thematic)
 
 ## load settings data
 gs4_auth(cache = ".secrets", email = TRUE, use_oob = TRUE) #use in shinyapps prod to connect to data
@@ -34,9 +38,13 @@ sr_wed = sr |>
 sr_thu = sr_wed |> 
   mutate(date_all = date + 1)
 
+sr_fri = sr_wed |> 
+  mutate(date_all = date + 2)
+
 wed_thu_dates = sr_wed |> 
   mutate(date_all = date) |> 
   rbind(sr_thu) |> 
+  rbind(sr_fri) |> 
   arrange() 
 
 all_date = data.frame(all_dates = as_date(min(wed_thu_dates$date_all)
@@ -179,11 +187,33 @@ df_format_inputs_orig = data.frame(match_name = c('equal', 'contains')
   mutate(row_num = row_number())
 
 
+##Theme Setup
+# Setting Theme (https://shiny.rstudio.com/app-stories/weather-lookup-bslib.html)
+my_theme <- bs_theme(bootswatch = "slate",
+                     base_font = font_google("Roboto"))
+# Let thematic know to update the fonts, too
+thematic_shiny(font = "auto")
+
 # Define UI for application that draws a histogram
 ui <- fluidPage(
+    theme = my_theme,
 
     # Application title
-    titlePanel("Customer Order Printout"),
+    # titlePanel("Customer Order Printout"),
+    
+    # Application title
+    div(id = "page-top",
+        fluidRow(img(src="logo.png", height="5%", width="5%")
+                 ,column(3, radioButtons("current_theme", "App Theme:", c("Dark" = "slate", "Light" = "flatly"), inline = TRUE))
+        )
+    ),
+    div(
+      id = "app-title",
+      titlePanel(title="Customer Order Printouts"
+                 ,tags$head(tags$link(rel = "icon", type = "image/png", href = "logo.png"),
+                            tags$title("FS Customer Orders"))
+      )
+    ),
     
     tabsetPanel(
       tabPanel("Step 1 - Load Data",
@@ -201,6 +231,8 @@ ui <- fluidPage(
         h4(textOutput("step1b")),
         uiOutput("help_1b_rui"),
         uiOutput("file_rui"),
+        uiOutput("example_upload"),
+        uiOutput("example_share_list"),
         uiOutput("button_1b_rui"),
         h4(textOutput("step1c")),
         uiOutput("button_1c_rui"),
@@ -228,14 +260,20 @@ ui <- fluidPage(
                       , c('Keep','Remove')
                       , multiple = FALSE),
           uiOutput("update_table_2a_rui"),
+          uiOutput("remove_member_2a_rui"),
+          uiOutput("item_list_2a_rui"),
+          uiOutput("add_item_2a_rui"),
+          uiOutput("item_list_remove_2a_rui"),
+          uiOutput("remove_item_2a_rui"),
           uiOutput("process_changes_2a_rui"),
           h3(uiOutput("step2")),
           h3(uiOutput("step2_"))
           
         ),
         mainPanel(
-          splitLayout(tableOutput("preview2")
-                      ,dataTableOutput("standard_members")),
+          splitLayout(tableOutput("preview2_name")
+                      ,dataTableOutput("preview2_item")),
+          dataTableOutput("standard_members"),
           h4(uiOutput("filter_2a_test_rui")),
           splitLayout(uiOutput("filter1_item_2a_rui")
                       ,uiOutput("filter2_item_2a_rui")
@@ -331,7 +369,7 @@ ui <- fluidPage(
                ),
                mainPanel(
                  dataTableOutput("preview5a"),
-                 dataTableOutput("preview5b")
+                 tableOutput("preview5b")
                )
              )
     )
@@ -339,13 +377,12 @@ ui <- fluidPage(
 )
 
 # Define server logic required to draw a histogram
-server <- function(input, output) {
+server <- function(input, output, session) {
 
   ############## Step 1 (Load Data)  ##############
   #####################################################################
   ###### ENHANCEMENT LIST FOR STEP:
     ##Play with Side bar % if other steps also change this to fit charts better
-    ##Add an example file to download to help people practice using the tool
   
   output$step1a = renderText(paste0("Step 1a ",emo::ji('black_circle')))
   output$step1b = renderText(paste0("Step 1b ",emo::ji('black_circle')))
@@ -378,6 +415,48 @@ server <- function(input, output) {
                   , multiple = FALSE
                   , accept = c(".csv"))
       )
+      
+      output$example_upload <- renderUI({
+        output$download_example_upload = downloadHandler(
+          filename = function() {
+            paste0('example_upload.csv')
+          },
+          content = function(file) {
+            test_upload = read.csv('Member Pick-up Details-shiny_test.csv'
+                                   )
+            colnames(test_upload) = c('Pickup Site','First Name','Last Name','Order')
+            readr::write_excel_csv(test_upload, file
+                      # , col_names = c('Pickup Site','First Name','Last Name','Order')
+                      )
+          }
+        )
+        
+        downloadButton("download_example_upload", label = "Download Example Upload", class = "btn-block")
+      })
+      
+      output$example_share_list <- renderUI({
+        output$download_example_share_list = downloadHandler(
+          filename = function() {
+            paste0('example_share_list.xlsx')
+          },
+          content = function(file) {
+            test_shares = read_excel('Member Pick-up Details-shiny_test.xlsx', 'shares')
+            test_members = read_excel('Member Pick-up Details-shiny_test.xlsx', 'members')
+            wb_share <- createWorkbook(title = 'example_share_list')
+            addWorksheet(wb_share, "standard_shares")
+            writeData(wb_share, "standard_shares", test_shares)
+            addWorksheet(wb_share, "member_orders")
+            writeData(wb_share, "member_orders", test_members)
+            
+            saveWorkbook(wb_share, file, overwrite = TRUE)
+          }
+        )
+        
+        downloadButton("download_example_share_list", label = "Download Example Share", class = "btn-block")
+      })
+      
+      
+      
       output$button_1b_rui <- renderUI(
         actionButton("pp_file","Step 1b. Check File Format"),
       )
@@ -423,6 +502,11 @@ server <- function(input, output) {
                                                                   , group_m_keep, group_u_keep)) |> 
                                 mutate(name_long = as.character(name_long)
                                        ,keep_remove = as.logical(keep_remove))
+  )
+  
+  df_stndrds_item = reactiveValues(data = data.frame(food_list_group_name
+                                              , item_original = c(NA, NA, NA, NA, NA)) |> 
+                                              filter(!is.na(item_original))
   )
   
   
@@ -659,8 +743,15 @@ server <- function(input, output) {
         rename('Group' = food_list_group_name
                , 'Name and Id' = name_long
                , 'In Printout' = keep_remove)
-      output$preview2 <- renderTable(df_stndrds_vw)
+      output$preview2_name <- renderTable(df_stndrds_vw)
       
+      df_stndrds_item_vw = df_stndrds_item$data |> 
+        arrange(food_list_group_name) |> 
+        rename('Group' = food_list_group_name
+               , 'Item Description' = item_original)
+      output$preview2_item <- renderDataTable(datatable(df_stndrds_item_vw
+                                                        , options = list(dom = 'tipr'
+                                                                         , pageLength = 5)))
       member_react()
 
     }
@@ -705,8 +796,48 @@ server <- function(input, output) {
         arrange(name_long) |> 
         pull()
       
-      selectInput("member_2a","Select Food List Group:", member_list, multiple = FALSE)
+      selectInput("member_2a","Select Member Name:", member_list, multiple = FALSE)
       
+    })
+    
+    output$remove_member_2a_rui <- renderUI({
+      actionButton("remove_member_2a","Clear Member Name")
+    })
+    
+    output$item_list_2a_rui <- renderUI({
+      item_list_2a = df_long_tm$data |> 
+        filter(rank == 3) |> 
+        inner_join(sh_shares_shrt |> 
+                     filter(food_list_group_name %in% input$group_2a) |> 
+                     select(group_name, food_list_group_name)
+                   , by = c('group_name')
+        ) |> 
+        select(item_original, item) |> 
+        distinct() |> 
+        arrange(item) |> 
+        select(item_original) |> 
+        pull()
+      
+      selectInput("item_2a","Select Item:"
+                  , c(NA, item_list_2a)
+                  , multiple = FALSE)
+    })
+    
+    output$add_item_2a_rui <- renderUI({
+      actionButton("add_item_2a","Add Item to List")
+    })
+    
+    output$item_list_remove_2a_rui <- renderUI({
+      item_remove = df_stndrds_item$data |> 
+        mutate(row_num = row_number()) |> 
+        select(row_num) |> 
+        distinct() |> 
+        pull()
+      selectInput("item_list_remove_2a","Select Item Row Number:", c(NA, item_remove), multiple = FALSE)
+    })
+    
+    output$remove_item_2a_rui <- renderUI({
+      actionButton("remove_item_2a","Remove Item from List")
     })
 
     output$filter_2a_test_rui <- renderUI({
@@ -873,7 +1004,6 @@ server <- function(input, output) {
   
   ### Standard Share Members - Adding members to the dataframe
   #####################################################################
-  
   observeEvent(input$add_member_2a,{
     df_stndrds$data = df_stndrds$data |> 
       filter(food_list_group_name == input$group_2a) |> 
@@ -890,194 +1020,326 @@ server <- function(input, output) {
              , 'Name and Id' = name_long
              , 'In Printout' = keep_remove)
       
-    output$preview2 <- renderTable(df_stndrds_update)
+    output$preview2_name <- renderTable(df_stndrds_update)
   })
+  
+  ### Standard Share Members - Remove members from the dataframe
+  #####################################################################
+  observeEvent(input$remove_member_2a,{
+    df_stndrds$data = df_stndrds$data |> 
+      filter(food_list_group_name == input$group_2a) |> 
+      mutate(name_long = NA
+             , keep_remove = NA
+      ) |> 
+      rbind(df_stndrds$data |> 
+              filter(food_list_group_name != input$group_2a)
+      )
     
+    df_stndrds_update = df_stndrds$data |> 
+      arrange(food_list_group_name) |> 
+      rename('Group' = food_list_group_name
+             , 'Name and Id' = name_long
+             , 'In Printout' = keep_remove)
+    
+    output$preview2_name <- renderTable(df_stndrds_update)
+  })
+  
+  ### Standard Share Items - Adding items to the dataframe
+  #####################################################################
+  observeEvent(input$add_item_2a,{
+    if (input$item_2a == 'NA') {
+      showModal(modalDialog(
+        title = paste0(emo::ji('stop_sign')," Error"),
+        HTML("Before adding a new Standard Share Item the <b>Select Item</b> field needs to not show as <u>NA</u>."),
+        easyClose = TRUE
+      ))
+    } else {
+      df_stndrds_item$data = data.frame(food_list_group_name = c(input$group_2a)
+                                        ,item_original = c(input$item_2a)
+      ) |> 
+        rbind(df_stndrds_item$data)
+      
+      df_stndrds_item_update = df_stndrds_item$data |>
+        arrange(food_list_group_name, item_original) |>
+        rename('Group' = food_list_group_name
+               , 'Item Description' = item_original)
+      
+      output$preview2_item <- renderDataTable(datatable(df_stndrds_item_update
+                                                        , options = list(dom = 'tipr'
+                                                                         , pageLength = 5)))
+      
+      item_remove = df_stndrds_item$data |> 
+        mutate(row_num = row_number()) |> 
+        select(row_num) |> 
+        distinct() |> 
+        pull()
+      selectInput("item_list_remove_2a","Select Item Row Number:", c(NA, item_remove), multiple = FALSE)
+    }
+    
+  })
+  
+  ### Standard Share Items - Remove items from the dataframe
+  #####################################################################
+  observeEvent(input$remove_item_2a,{
+    if (input$item_list_remove_2a == 'NA') {
+      showModal(modalDialog(
+        title = paste0(emo::ji('stop_sign')," Error"),
+        HTML("Before remvoing a Standard Share Item the <b>Select Item Row Number</b> field needs to not show as <u>NA</u>."),
+        easyClose = TRUE
+      ))
+    } else {
+      df_stndrds_item$data = df_stndrds_item$data |> 
+        mutate(row_num = row_number()) |> 
+        filter(row_num != input$item_list_remove_2a) |> 
+        select(-row_num)
+      
+      df_stndrds_item_update = df_stndrds_item$data |>
+        arrange(food_list_group_name, item_original) |>
+        rename('Group' = food_list_group_name
+               , 'Item Description' = item_original)
+      
+      output$preview2_item <- renderDataTable(datatable(df_stndrds_item_update
+                                                        , options = list(dom = 'tipr'
+                                                                         , pageLength = 5)))
+      
+      item_remove = df_stndrds_item$data |> 
+        mutate(row_num = row_number()) |> 
+        select(row_num) |> 
+        distinct() |> 
+        pull()
+      selectInput("item_list_remove_2a","Select Item Row Number:", c(NA, item_remove), multiple = FALSE)
+    }
+    
+  })
+  
   ### Standard Share Members - Action (Process results)
   #####################################################################
-  
   df_long_def = reactiveValues(data = NULL)   #passed on as data set for steps
   
   observeEvent(input$process_2a,{
     
-    if (dim(df_stndrds$data |> filter(is.na(name_long)))[1] > 0 ) {
+    df_stndrd_comb = df_stndrds$data |> 
+      mutate(item_original = NA) |> 
+      rbind(df_stndrds_item$data |> 
+              mutate(name_long = NA
+                     , keep_remove = NA) |> 
+              select(food_list_group_name
+                     , name_long
+                     , keep_remove
+                     , item_original)
+      )
+    
+    if (dim(df_stndrd_comb
+        |> mutate(name_cnt = ifelse(!is.na(name_long), 1, 0)
+                  , item_cnt = ifelse(!is.na(item_original), 1, 0)) 
+        |> group_by(food_list_group_name)
+        |> summarise(name_cnt = sum(name_cnt)
+                     , item_cnt = sum(item_cnt))
+        |> filter(name_cnt > 0 & item_cnt > 0)
+    )[1] > 0) {
       showModal(modalDialog(
-        title = paste0(emo::ji('warning')," Warning"),
-        HTML("There is at least one group that does not have a member selected for the standard share item list.<br> 
-        This list will be used to reduce customer orders who have all standard share items to a single line in the printout sheet. <br>
-        You can either:<br>
-        1. Leave this if its expected. There may not be a member that has all standard share items with no additions for the week.<br>
-        2. Add a member to the item standard share list above to reduce printout results.
-        "),
+        title = paste0(emo::ji('stop_sign')," Error"),
+        HTML("Cannot move on until either:  <br>
+             1. Each Group only contains a single member name and NO Item Description for that same group <br>
+             2. Items for that Group are populated and NO Member name is associated as the standard share"),
         easyClose = TRUE
       ))
-    } 
-    
-    #standard share item list
-    df_stndrds_item = df_long_tm$data |> 
-      inner_join(df_stndrds$data |> 
-                   filter(!is.na(name_long))
-                 , by = c('name_long')
-      ) |> 
-      filter(rank == 3) 
-    
-    #bringing in the Food List Group Name
-    df_stndrds_item_grp = df_stndrds_item |>
-      select(food_list_group_name, item) |>
-      distinct()|>
-      left_join(sh_shares_shrt |>
-                  select(group_name, food_list_group_name)
-                , by = c('food_list_group_name')
-      ) |>
-      select(-food_list_group_name) |>
-      mutate(standard_item = 1)
-
-    stndrd_customers_all = df_long_tm$data |>
-      left_join(df_stndrds_item |>
-                  select(food_list_group_name, item_original) |>
-                  distinct()|>
-                  group_by(food_list_group_name) |>
-                  mutate(rank_v = rank(row_number()),
-                         stndrd_rows= max(rank_v)
-                  ) |>
-                  ungroup() |>
-                  left_join(sh_shares_shrt |>
-                              select(group_name, food_list_group_name)
-                            , by = c('food_list_group_name')
-                  ) |>
-                  select( -rank_v, -food_list_group_name)
-                , by = c('group_name', 'item_original')
-      ) |>
-      filter(rank == 3) |>
-      select(id, name_long, group_name, item_original, stndrd_rows) |>
-      distinct() |>
-      group_by(id) |>
-      mutate(rank_v = sum(ifelse(!is.na(stndrd_rows), 1, 0)),
-             customer_rows = max(rank_v),
-             rank_n_full = ifelse(!is.na(stndrd_rows), rank(row_number()), 0),
-             customer_n_full_rows = max(rank_n_full),
-             n_full_rows = sum(ifelse(rank_n_full == 0, 1, 0))
-      ) |>
-      ungroup()
-
-    #100% match to the standard share list (Pickup Time does not count)
-    stndrd_customers_full_match = stndrd_customers_all |>
-      filter(stndrd_rows == customer_rows & n_full_rows == 0) |>
-      left_join(df_stndrds$data |>
-                  filter(!is.na(name_long))
-                , by = c('name_long')
-      ) |>
-      mutate(keep_remove = ifelse(is.na(keep_remove), TRUE, keep_remove)) |>
-      select(id, keep_remove) |>
-      distinct()
-    
-    #Some members have the standard share but with additional items on top (milk, etc.)
-    stndrd_customers_match_w_extras = stndrd_customers_all |>
-      filter(stndrd_rows == (customer_n_full_rows - n_full_rows) & n_full_rows > 0) |>
-      select(id) |>
-      distinct() |>
-      left_join(stndrd_customers_all |>
-                  filter(is.na(stndrd_rows)) |>
-                  select(id, item_original)
-                , by = c('id')
-      ) |>
-      mutate(keep_remove =  TRUE) |>
-      select(id, item_original, keep_remove) |>
-      distinct()
-    
-    #combine all data to output to be used in next step
-    df_long_def$data = df_long_tm$data |> #bring in stndrd trading member names
-      filter(id %in% (stndrd_customers_full_match |> filter(keep_remove == TRUE))$id
-             | id %in% (stndrd_customers_match_w_extras |> filter(keep_remove == TRUE))$id
-      ) |>
-      filter(rank <= 2) |>
-      select(-item_original) |>
-      rbind(df_long_tm$data |>  #bring in stndrd trading item row
-              filter(id %in% (stndrd_customers_full_match |> filter(keep_remove == TRUE))$id
-                     | id %in% (stndrd_customers_match_w_extras |> filter(keep_remove == TRUE))$id
-              ) |>
-              filter(rank >= 3) |>
-              mutate(quantity = NA,
-                     item = ifelse(rank == 3, 'STANDARD SHARE ITEMS', item)
-              ) |>
-              select(-item_original) |>
-              distinct()
-      ) |>
-      rbind(df_long_tm$data |>  #bring in all members not in stndrd member list
-              select(-item_original) |>
-              filter(!id %in% (stndrd_customers_full_match |> filter(keep_remove == TRUE))$id
-                     & !id %in% (stndrd_customers_match_w_extras |> filter(keep_remove == TRUE))$id
-              )
-      ) |>
-      rbind(df_long_tm$data |>  #bring in items that have a stndrd item match but have extra sales
-              inner_join(stndrd_customers_match_w_extras |>
-                           select(-keep_remove)
-                         , by = c('id','item_original')
-              ) |>
-              select(-item_original)
-      ) |>
-      arrange(group_name, description, time, lastname, firstname, id, rank) |>
-      left_join(df_stndrds_item_grp
-                , by = c('item','group_name'))
-
-    standard_summary = df_long_def$data |>
-      inner_join(stndrd_customers_match_w_extras |>
-                   select(-item_original) |>
-                   mutate(extras = TRUE) |>
-                   distinct() |>
-                   rbind(stndrd_customers_full_match |>
-                           mutate(extras = FALSE))
-                 , by = c('id')
-      ) |>
-      select('Group Name' = group_name
-             , 'Name and Id' = name_long
-             , 'In Printout' = keep_remove
-             , 'Extra Items' = extras) |>
-      distinct()
-
-    output$standard_members <- renderDataTable(datatable(standard_summary
-                                                         , options = list(dom = 'ltip'
-                                                                          , pageLength = 5
-                                                                          , lengthMenu = c(5, 10, 15, 20) 
-                                                                          )
-                                                         ))
-    
-    output$step2a = renderText(paste0("Step 2a ",emo::ji('heavy_check_mark')))
-    
-    output$step2 <- renderUI(
-      renderText(paste0(emo::ji('heavy_check_mark'), " Step 2 is Complete! ",emo::ji('party_popper')))
-    )
-    output$step2_ <- renderUI(
-      renderText(paste0(emo::ji('index_pointing_up'),
-                        emo::ji('index_pointing_up'),
-                        "   GO TO STEP 3 TAB! "
-                        ,emo::ji('index_pointing_up')
-                        ,emo::ji('index_pointing_up')))
-    )
-
-    #all below are used in Step 3
-    output$new_item_3a_rui <- renderUI(
-      selectInput("new_item_3a", "Select Item to Add to Delete List:"
-                  ,c(NA, df_long_def$data |> 
-                       filter(rank == 3) |> 
-                       filter(!str_detect(item, pot_plant_text)) |> 
-                       select(item) |> 
-                       distinct() |> 
-                       pull())
-                  )
-    )
-
-    output$new_item_temp_3a_rui <- renderUI(
-      actionButton("add_temp_item","Add Item Temporarily")
-    )
-
-    output$new_item_perm_3a_rui <- renderUI(
-      actionButton("add_perm_item","Add Item Permanently")
-    )
-
-    output$process_3a_rui <- renderUI(
-      actionButton("process_3a","Step 3a. Process Delete List")
-    )
+    } else {
+      if (dim(df_stndrd_comb 
+              |> filter(!is.na(name_long) | !is.na(item_original)) 
+              |> select(food_list_group_name)
+              |> distinct()
+              )[1] < length(food_list_group_name) ) {
+        showModal(modalDialog(
+          title = paste0(emo::ji('warning')," Warning"),
+          HTML("There is at least one group that does not have a member selected for the standard share item list.<br> 
+          This list will be used to reduce customer orders who have all standard share items to a single line in the printout sheet. <br>
+          You can either:<br>
+          1. Leave this if its expected. There may not be a member that has all standard share items with no additions for the week.<br>
+          2. Add a member to the item standard share list above to reduce printout results.
+          "),
+          easyClose = TRUE
+        ))
+      } 
+      
+      ###########################################################################################
+      ###########################################################################################
+      ####### NEED TO ASSESS FROM HERE TO.....####### 
+      ###########################################################################################
+      ###########################################################################################
+      
+      #standard share item list
+      df_stndrds_item = df_long_tm$data |> 
+        inner_join(df_stndrds$data |> 
+                     filter(!is.na(name_long))
+                   , by = c('name_long')
+        ) |> 
+        filter(rank == 3) 
+      
+      #bringing in the Food List Group Name
+      df_stndrds_item_grp = df_stndrds_item |>
+        select(food_list_group_name, item) |>
+        distinct()|>
+        left_join(sh_shares_shrt |>
+                    select(group_name, food_list_group_name)
+                  , by = c('food_list_group_name')
+        ) |>
+        select(-food_list_group_name) |>
+        mutate(standard_item = 1)
+  
+      stndrd_customers_all = df_long_tm$data |>
+        left_join(df_stndrds_item |>
+                    select(food_list_group_name, item_original) |>
+                    distinct()|>
+                    group_by(food_list_group_name) |>
+                    mutate(rank_v = rank(row_number()),
+                           stndrd_rows= max(rank_v)
+                    ) |>
+                    ungroup() |>
+                    left_join(sh_shares_shrt |>
+                                select(group_name, food_list_group_name)
+                              , by = c('food_list_group_name')
+                    ) |>
+                    select( -rank_v, -food_list_group_name)
+                  , by = c('group_name', 'item_original')
+        ) |>
+        filter(rank == 3) |>
+        select(id, name_long, group_name, item_original, stndrd_rows) |>
+        distinct() |>
+        group_by(id) |>
+        mutate(rank_v = sum(ifelse(!is.na(stndrd_rows), 1, 0)),
+               customer_rows = max(rank_v),
+               rank_n_full = ifelse(!is.na(stndrd_rows), rank(row_number()), 0),
+               customer_n_full_rows = max(rank_n_full),
+               n_full_rows = sum(ifelse(rank_n_full == 0, 1, 0))
+        ) |>
+        ungroup()
+  
+      #100% match to the standard share list (Pickup Time does not count)
+      stndrd_customers_full_match = stndrd_customers_all |>
+        filter(stndrd_rows == customer_rows & n_full_rows == 0) |>
+        left_join(df_stndrds$data |>
+                    filter(!is.na(name_long))
+                  , by = c('name_long')
+        ) |>
+        mutate(keep_remove = ifelse(is.na(keep_remove), TRUE, keep_remove)) |>
+        select(id, keep_remove) |>
+        distinct()
+      
+      #Some members have the standard share but with additional items on top (milk, etc.)
+      stndrd_customers_match_w_extras = stndrd_customers_all |>
+        filter(stndrd_rows == (customer_n_full_rows - n_full_rows) & n_full_rows > 0) |>
+        select(id) |>
+        distinct() |>
+        left_join(stndrd_customers_all |>
+                    filter(is.na(stndrd_rows)) |>
+                    select(id, item_original)
+                  , by = c('id')
+        ) |>
+        mutate(keep_remove =  TRUE) |>
+        select(id, item_original, keep_remove) |>
+        distinct()
+      
+      #combine all data to output to be used in next step
+      df_long_def$data = df_long_tm$data |> #bring in stndrd trading member names
+        filter(id %in% (stndrd_customers_full_match |> filter(keep_remove == TRUE))$id
+               | id %in% (stndrd_customers_match_w_extras |> filter(keep_remove == TRUE))$id
+        ) |>
+        filter(rank <= 2) |>
+        select(-item_original) |>
+        rbind(df_long_tm$data |>  #bring in stndrd trading item row
+                filter(id %in% (stndrd_customers_full_match |> filter(keep_remove == TRUE))$id
+                       | id %in% (stndrd_customers_match_w_extras |> filter(keep_remove == TRUE))$id
+                ) |>
+                filter(rank >= 3) |>
+                mutate(quantity = NA,
+                       item = ifelse(rank == 3, 'STANDARD SHARE ITEMS', item)
+                ) |>
+                select(-item_original) |>
+                distinct()
+        ) |>
+        rbind(df_long_tm$data |>  #bring in all members not in stndrd member list
+                select(-item_original) |>
+                filter(!id %in% (stndrd_customers_full_match |> filter(keep_remove == TRUE))$id
+                       & !id %in% (stndrd_customers_match_w_extras |> filter(keep_remove == TRUE))$id
+                )
+        ) |>
+        rbind(df_long_tm$data |>  #bring in items that have a stndrd item match but have extra sales
+                inner_join(stndrd_customers_match_w_extras |>
+                             select(-keep_remove)
+                           , by = c('id','item_original')
+                ) |>
+                select(-item_original)
+        ) |>
+        arrange(group_name, description, time, lastname, firstname, id, rank) |>
+        left_join(df_stndrds_item_grp
+                  , by = c('item','group_name'))
+  
+      standard_summary = df_long_def$data |>
+        inner_join(stndrd_customers_match_w_extras |>
+                     select(-item_original) |>
+                     mutate(extras = TRUE) |>
+                     distinct() |>
+                     rbind(stndrd_customers_full_match |>
+                             mutate(extras = FALSE))
+                   , by = c('id')
+        ) |>
+        select('Group Name' = group_name
+               , 'Name and Id' = name_long
+               , 'In Printout' = keep_remove
+               , 'Extra Items' = extras) |>
+        distinct()
+  
+      output$standard_members <- renderDataTable(datatable(standard_summary
+                                                           , options = list(dom = 'ltip'
+                                                                            , pageLength = 5
+                                                                            , lengthMenu = c(5, 10, 15, 20) 
+                                                                            )
+                                                           ))
+      
+      output$step2a = renderText(paste0("Step 2a ",emo::ji('heavy_check_mark')))
+      
+      output$step2 <- renderUI(
+        renderText(paste0(emo::ji('heavy_check_mark'), " Step 2 is Complete! ",emo::ji('party_popper')))
+      )
+      output$step2_ <- renderUI(
+        renderText(paste0(emo::ji('index_pointing_up'),
+                          emo::ji('index_pointing_up'),
+                          "   GO TO STEP 3 TAB! "
+                          ,emo::ji('index_pointing_up')
+                          ,emo::ji('index_pointing_up')))
+      )
+  
+      #all below are used in Step 3
+      output$new_item_3a_rui <- renderUI(
+        selectInput("new_item_3a", "Select Item to Add to Delete List:"
+                    ,c(NA, df_long_def$data |> 
+                         filter(rank == 3) |> 
+                         filter(!str_detect(item, pot_plant_text)) |> 
+                         select(item) |> 
+                         distinct() |> 
+                         pull())
+                    )
+      )
+  
+      output$new_item_temp_3a_rui <- renderUI(
+        actionButton("add_temp_item","Add Item Temporarily")
+      )
+  
+      output$new_item_perm_3a_rui <- renderUI(
+        actionButton("add_perm_item","Add Item Permanently")
+      )
+  
+      output$process_3a_rui <- renderUI(
+        actionButton("process_3a","Step 3a. Process Delete List")
+      )
+      
+      ###########################################################################################
+      ###########################################################################################
+      ####### ... TO HERE  ####### 
+      ###########################################################################################
+      ###########################################################################################
+    }
   })
   
   ############## Step 3 (Delete Items)  ##############
@@ -1988,10 +2250,13 @@ server <- function(input, output) {
     )
 
     output$new_item_5a_color_rui <- renderUI(
-      selectInput("new_item_5a_color", "Select Color (Optional):"
-                  , c(NA, '#ffff00')
-                  , multiple = FALSE
-      )
+      # selectInput("new_item_5a_color", "Select Color (Optional):"
+      #             , c(NA, '#ffff00')
+      #             , multiple = FALSE
+      # )
+      colourInput(
+        "new_item_5a_color", NULL, "#E5E5E5",
+        palette = "limited")
     )
     
     output$new_item_5a_add_rui <- renderUI(
@@ -2032,9 +2297,6 @@ server <- function(input, output) {
   ###### ENHANCEMENT LIST FOR STEP:
      ##SHARE FINAL VIEW OF EXCEL WITH FORMATTING CHANGES
      ## ADD THE DATA FRAME SHOWING MEMBER REDUCTION TOTALS TO SHOW SOMETHING IF RESULT ABOVE FAILS
-     ##ADD PROGRESS BAR TO FORMATTING SINCE THIS TAKES SOME TIME TO COMPLETE
-     ##ADD COLOR OPTIONS THAT ACTUALLY SHOW THE COLOR AND NOT JUST THE HEX VALUES. 
-     ##Add in to the searched text the Row Count found after processed
   
   output$step5a = renderText(paste0("Step 5a ",emo::ji('black_circle')))
   
@@ -2232,32 +2494,43 @@ server <- function(input, output) {
         mutate(ss_cell = row_number()) |> 
         filter(!is.na(highlight_color_hex)) 
       
-      for (i in (test_color_c1 |> select(highlight_color_hex) |> distinct() |> pull())) {
-        print(i)
-        bhfill_style <- createStyle(bgFill = i, textDecoration = "bold")
-        
-        for (j in (test_color_c1 |> filter(highlight_color_hex == i) |> select(ss_cell) |> distinct() |> pull())) {
-          conditionalFormatting(wb, "testing", rule = "!=0", cols = 1, rows = j, style = bhfill_style)
-          addStyle(wb, "testing", cols = 1, rows = j, style = createStyle(halign = "center"))
+      withProgress(message = 'Color Groups - Column 1', value = 0, {
+        # Number of times we'll go through the loop
+        n <- (test_color_c1 |> select(highlight_color_hex) |> distinct() |> summarise(n = n()) |> pull())
+        for (i in (test_color_c1 |> select(highlight_color_hex) |> distinct() |> pull())) {
+          print(i)
+          bhfill_style <- createStyle(bgFill = i, textDecoration = "bold")
+          
+          for (j in (test_color_c1 |> filter(highlight_color_hex == i) |> select(ss_cell) |> distinct() |> pull())) {
+            conditionalFormatting(wb, "testing", rule = "!=0", cols = 1, rows = j, style = bhfill_style)
+            addStyle(wb, "testing", cols = 1, rows = j, style = createStyle(halign = "center"))
+          }
+          
+          # Increment the progress bar, and update the detail text.
+          incProgress(1/n, detail = paste("Painting", i))
         }
-        
-      }
+      })
       
       #### Column 2
       test_color_c2 = df_long_sh_color_c2 |> 
         mutate(ss_cell = row_number()) |> 
         filter(!is.na(highlight_color_hex)) 
       
-      for (i in (test_color_c2 |> select(highlight_color_hex) |> distinct() |> pull())) {
-        print(i)
-        bhfill_style <- createStyle(bgFill = i, textDecoration = "bold")
-        
-        for (j in (test_color_c2 |> filter(highlight_color_hex == i) |> select(ss_cell) |> distinct() |> pull())) {
-          conditionalFormatting(wb, "testing", rule = "!=0", cols = 2, rows = j, style = bhfill_style)
-          addStyle(wb, "testing", cols = 2, rows = j, style = createStyle(halign = "center"))
+      withProgress(message = 'Color Groups - Column 2', value = 0, {
+        # Number of times we'll go through the loop
+        n <- (test_color_c2 |> select(highlight_color_hex) |> distinct() |> summarise(n = n()) |> pull())
+        for (i in (test_color_c2 |> select(highlight_color_hex) |> distinct() |> pull())) {
+          print(i)
+          bhfill_style <- createStyle(bgFill = i, textDecoration = "bold")
+          
+          for (j in (test_color_c2 |> filter(highlight_color_hex == i) |> select(ss_cell) |> distinct() |> pull())) {
+            conditionalFormatting(wb, "testing", rule = "!=0", cols = 2, rows = j, style = bhfill_style)
+            addStyle(wb, "testing", cols = 2, rows = j, style = createStyle(halign = "center"))
+          }
+          # Increment the progress bar, and update the detail text.
+          incProgress(1/n, detail = paste("Painting", i))
         }
-        
-      }
+      })
       
       ## Bold each item if its in the Standard Item List for that group
       
@@ -2265,20 +2538,31 @@ server <- function(input, output) {
         mutate(ss_cell = row_number()) |> 
         filter(!is.na(standard_item)) 
       
-      for (j in (bold_stndrd_item_c1 |> select(ss_cell) |> distinct() |> pull())) {
-        bhfill_style <- createStyle(textDecoration = "bold")
-        conditionalFormatting(wb, "testing", rule = "!=0", cols = 1, rows = j, style = bhfill_style)
-      }
+      withProgress(message = 'Bold Standard Share Items - Column 1', value = 0, {
+        # Number of times we'll go through the loop
+        n <- (bold_stndrd_item_c1 |> select(ss_cell) |> distinct() |> summarise(n = n()) |> pull())
+        for (j in (bold_stndrd_item_c1 |> select(ss_cell) |> distinct() |> pull())) {
+          bhfill_style <- createStyle(textDecoration = "bold")
+          conditionalFormatting(wb, "testing", rule = "!=0", cols = 1, rows = j, style = bhfill_style)
+          # Increment the progress bar, and update the detail text.
+          incProgress(1/n, detail = paste("Painting", i))
+        }
+      })
       
       bold_stndrd_item_c2 = df_long_sh_color_c2 |> 
         mutate(ss_cell = row_number()) |> 
         filter(!is.na(standard_item)) 
       
-      for (j in (bold_stndrd_item_c2 |> select(ss_cell) |> distinct() |> pull())) {
-        bhfill_style <- createStyle(textDecoration = "bold")
-        conditionalFormatting(wb, "testing", rule = "!=0", cols = 2, rows = j, style = bhfill_style)
-      }
-      
+      withProgress(message = 'Bold Standard Share Items - Column 2', value = 0, {
+        # Number of times we'll go through the loop
+        n <- (bold_stndrd_item_c2 |> select(ss_cell) |> distinct() |> summarise(n = n()) |> pull())
+        for (j in (bold_stndrd_item_c2 |> select(ss_cell) |> distinct() |> pull())) {
+          bhfill_style <- createStyle(textDecoration = "bold")
+          conditionalFormatting(wb, "testing", rule = "!=0", cols = 2, rows = j, style = bhfill_style)
+          # Increment the progress bar, and update the detail text.
+          incProgress(1/n, detail = paste("Painting", i))
+        }
+      })
       
       style_xlsx = function(wb_n, sheet, col_n, match, text, colorhex, text_dec_name) {
         if (!is.na(colorhex) & !is.na(text_dec_name)) {  #HIGHLIGHT BACKGROUND AND DECORATE TEXT
@@ -2376,16 +2660,29 @@ server <- function(input, output) {
       }
       
       df_long_sh_color = df_long_sh_color_c1
-      for (i in 1:dim(df_format_inputs$data)[1]) {
-        df_l = df_format_inputs$data
-        style_xlsx(wb, "testing", 1, df_l$match_name[i], df_l$text_name[i], df_l$color_name[i], df_l$format_name[i])
-
-      }
+      withProgress(message = 'Custom Formatting - Column 1', value = 0, {
+        # Number of times we'll go through the loop
+        n <- (dim(df_format_inputs$data)[1])
+        for (i in 1:dim(df_format_inputs$data)[1]) {
+          df_l = df_format_inputs$data
+          style_xlsx(wb, "testing", 1, df_l$match_name[i], df_l$text_name[i], df_l$color_name[i], df_l$format_name[i])
+          # Increment the progress bar, and update the detail text.
+          incProgress(1/n, detail = paste("Painting", i))
+        }
+      })
+      
       df_long_sh_color = df_long_sh_color_c2
-      for (i in 1:dim(df_format_inputs$data)[1]) {
-        df_l = df_format_inputs$data
-        style_xlsx(wb, "testing", 2, df_l$match_name[i], df_l$text_name[i], df_l$color_name[i], df_l$format_name[i]) 
-      }
+      withProgress(message = 'Custom Formatting - Column 2', value = 0, {
+        # Number of times we'll go through the loop
+        n <- (dim(df_format_inputs$data)[1])
+        for (i in 1:dim(df_format_inputs$data)[1]) {
+          df_l = df_format_inputs$data
+          style_xlsx(wb, "testing", 2, df_l$match_name[i], df_l$text_name[i], df_l$color_name[i], df_l$format_name[i]) 
+          # Increment the progress bar, and update the detail text.
+          incProgress(1/n, detail = paste("Painting", i))
+        }
+      })
+
       return(wb)
     }
     
@@ -2395,7 +2692,7 @@ server <- function(input, output) {
     output$download_5a_excel <- renderUI({
       output$download_excel = downloadHandler(
         filename = function() {
-          paste0('print_excel_',input$date_value,'.xlsx')
+          paste0('pull_sheet_excel_',input$date_value,'.xlsx')
         },
         content = function(file) {
           saveWorkbook(wb_excel$data, file, overwrite = TRUE)
@@ -2408,7 +2705,7 @@ server <- function(input, output) {
     output$download_5a_openo <- renderUI({
       output$download_openo = downloadHandler(
         filename = function() {
-          paste0('print_openo_',input$date_value,'.xlsx')
+          paste0('pull_sheet_openo_',input$date_value,'.xlsx')
         },
         content = function(file) {
           saveWorkbook(wb_openo$data, file, overwrite = TRUE)
@@ -2434,15 +2731,40 @@ server <- function(input, output) {
     output$step5_ <- renderUI(
       renderText(paste0(emo::ji('partying_face'),
                         emo::ji('partying_face'),
-                        " DONE WITH DASHBOARD! "
+                        " DASHBOARD DONE! "
                         ,emo::ji('partying_face')
                         ,emo::ji('partying_face')))
+    )
+    
+    
+    member_end = df_long_del$data |> 
+      filter(rank >= 0) |> 
+      select(group_name, firstname, lastname) |> 
+      distinct() |> 
+      group_by(group_name) |> 
+      summarise(n_end = n())
+    
+    output$preview5b = renderTable(member_start$data |> 
+                                      full_join(member_end
+                                                , by = c('group_name')) |> 
+                                      mutate(difference = n_end - n_start) |> 
+                                      select(Group = 'group_name'
+                                             , 'Member Count - Start' = n_start
+                                             , 'Member Count - End' = n_end
+                                             , Change = difference)
     )
     
   })
   
   ##Move this up (Delete step) or remove entirely???
   #### Member Count - End
+  
+  observe({
+    # Make sure theme is kept current with desired
+    session$setCurrentTheme(
+      bs_theme_update(my_theme, bootswatch = input$current_theme)
+    )
+  })
 }
 
 # Run the application 
