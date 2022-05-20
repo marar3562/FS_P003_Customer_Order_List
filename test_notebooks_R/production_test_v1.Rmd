@@ -456,6 +456,8 @@ df_long_def = df_long_tm |> #bring in stndrd trading member names
   arrange(group_name, description, time, lastname, firstname, id, rank) |> 
   left_join(df_stndrds_item_grp
             , by = c('item','group_name'))
+
+##location for site total data frame built similar to query above with slight mods
   
 df_long_def |> 
   inner_join(stndrd_customers_match_w_extras |> 
