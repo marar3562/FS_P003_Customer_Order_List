@@ -765,13 +765,6 @@ server <- function(input, output, session) {
     ## TAB OVER THE FILTERS AND ADD MEMBER BUTTONS
     ## ADD AN EMOJI TO THE ADD MEMBER ACTION BUTTON
     ## PLAY WITH MAIN PAGE FORMATTING SO ALL CHARTS AND FILTER LOOK NICE
-    ##Add ability to manually pick items for standard share
-    ## 1. Remove Member Name from list button necessary
-    ## 2. Item drop down list required with NA at beginning (error if button selected when NA)
-    ## 3. Button to add item to data frame
-    ## 4. Drop down of items to remove
-    ## 5. Button to remove item from data frame
-    ## Figure out logic to add this new member in to process BUT not in the end result to print
   
   
   ## Step 2 - Inputs
@@ -1162,34 +1155,39 @@ server <- function(input, output, session) {
         ))
       } 
       
-      ###########################################################################################
-      ###########################################################################################
-      ####### NEED TO ASSESS FROM HERE TO.....####### 
-      ###########################################################################################
-      ###########################################################################################
-      
       #standard share item list
-      df_stndrds_item = df_long_tm$data |> 
-        inner_join(df_stndrds$data |> 
-                     filter(!is.na(name_long))
+      df_stndrds_mem_item = df_long_tm$data |> 
+        inner_join(df_stndrd_comb |> 
+                     filter(!is.na(name_long)) |> 
+                     select(-item_original)
                    , by = c('name_long')
         ) |> 
         filter(rank == 3) 
       
       #bringing in the Food List Group Name
-      df_stndrds_item_grp = df_stndrds_item |>
+      df_stndrds_item_grp = df_stndrds_mem_item |>
         select(food_list_group_name, item) |>
-        distinct()|>
+        rbind(df_stndrd_comb |>
+                filter(!is.na(item_original)) |>
+                mutate(order = item_original) |>
+                separate(order, into = c('quantity','item'), sep = 'x', extra = "merge") |>
+                select(food_list_group_name, item)
+              ) |>
+        distinct() |> 
         left_join(sh_shares_shrt |>
                     select(group_name, food_list_group_name)
                   , by = c('food_list_group_name')
         ) |>
         select(-food_list_group_name) |>
         mutate(standard_item = 1)
-  
+
       stndrd_customers_all = df_long_tm$data |>
-        left_join(df_stndrds_item |>
+        left_join(df_stndrds_mem_item |>
                     select(food_list_group_name, item_original) |>
+                    rbind(df_stndrd_comb |>
+                            filter(!is.na(item_original)) |>
+                            select(food_list_group_name, item_original)
+                    ) |>
                     distinct()|>
                     group_by(food_list_group_name) |>
                     mutate(rank_v = rank(row_number()),
@@ -1214,7 +1212,7 @@ server <- function(input, output, session) {
                n_full_rows = sum(ifelse(rank_n_full == 0, 1, 0))
         ) |>
         ungroup()
-  
+
       #100% match to the standard share list (Pickup Time does not count)
       stndrd_customers_full_match = stndrd_customers_all |>
         filter(stndrd_rows == customer_rows & n_full_rows == 0) |>
@@ -1225,7 +1223,7 @@ server <- function(input, output, session) {
         mutate(keep_remove = ifelse(is.na(keep_remove), TRUE, keep_remove)) |>
         select(id, keep_remove) |>
         distinct()
-      
+
       #Some members have the standard share but with additional items on top (milk, etc.)
       stndrd_customers_match_w_extras = stndrd_customers_all |>
         filter(stndrd_rows == (customer_n_full_rows - n_full_rows) & n_full_rows > 0) |>
@@ -1239,7 +1237,7 @@ server <- function(input, output, session) {
         mutate(keep_remove =  TRUE) |>
         select(id, item_original, keep_remove) |>
         distinct()
-      
+
       #combine all data to output to be used in next step
       df_long_def$data = df_long_tm$data |> #bring in stndrd trading member names
         filter(id %in% (stndrd_customers_full_match |> filter(keep_remove == TRUE))$id
@@ -1274,7 +1272,7 @@ server <- function(input, output, session) {
         arrange(group_name, description, time, lastname, firstname, id, rank) |>
         left_join(df_stndrds_item_grp
                   , by = c('item','group_name'))
-  
+
       standard_summary = df_long_def$data |>
         inner_join(stndrd_customers_match_w_extras |>
                      select(-item_original) |>
@@ -1289,16 +1287,16 @@ server <- function(input, output, session) {
                , 'In Printout' = keep_remove
                , 'Extra Items' = extras) |>
         distinct()
-  
+
       output$standard_members <- renderDataTable(datatable(standard_summary
                                                            , options = list(dom = 'ltip'
                                                                             , pageLength = 5
-                                                                            , lengthMenu = c(5, 10, 15, 20) 
+                                                                            , lengthMenu = c(5, 10, 15, 20)
                                                                             )
                                                            ))
-      
+
       output$step2a = renderText(paste0("Step 2a ",emo::ji('heavy_check_mark')))
-      
+
       output$step2 <- renderUI(
         renderText(paste0(emo::ji('heavy_check_mark'), " Step 2 is Complete! ",emo::ji('party_popper')))
       )
@@ -1309,36 +1307,31 @@ server <- function(input, output, session) {
                           ,emo::ji('index_pointing_up')
                           ,emo::ji('index_pointing_up')))
       )
-  
+
       #all below are used in Step 3
       output$new_item_3a_rui <- renderUI(
         selectInput("new_item_3a", "Select Item to Add to Delete List:"
-                    ,c(NA, df_long_def$data |> 
-                         filter(rank == 3) |> 
-                         filter(!str_detect(item, pot_plant_text)) |> 
-                         select(item) |> 
-                         distinct() |> 
+                    ,c(NA, df_long_def$data |>
+                         filter(rank == 3) |>
+                         filter(!str_detect(item, pot_plant_text)) |>
+                         select(item) |>
+                         distinct() |>
                          pull())
                     )
       )
-  
+
       output$new_item_temp_3a_rui <- renderUI(
         actionButton("add_temp_item","Add Item Temporarily")
       )
-  
+
       output$new_item_perm_3a_rui <- renderUI(
         actionButton("add_perm_item","Add Item Permanently")
       )
-  
+
       output$process_3a_rui <- renderUI(
         actionButton("process_3a","Step 3a. Process Delete List")
       )
       
-      ###########################################################################################
-      ###########################################################################################
-      ####### ... TO HERE  ####### 
-      ###########################################################################################
-      ###########################################################################################
     }
   })
   
@@ -2466,14 +2459,14 @@ server <- function(input, output, session) {
       
       write_df = df_long_sh_color_c1 |>
         mutate(item_symbol = ifelse(rank == -1
-                                    , paste0(item_symbol, ' (',season_number$data,'.',week_number$data, ' - ', input$date_value,')')
+                                    , paste0(item_symbol, ' (',season_number$data,'w',week_number$data, ' - ', input$date_value,')')
                                     , item_symbol)
         ) |> 
         select(item_1 = item_symbol) |>
         cbind(
           df_long_sh_color_c2 |>
             mutate(item_symbol = ifelse(rank == -1
-                                        , paste0(item_symbol, ' (',season_number$data,'.',week_number$data, ' - ', input$date_value,')')
+                                        , paste0(item_symbol, ' (',season_number$data,'w',week_number$data, ' - ', input$date_value,')')
                                         , item_symbol)
             ) |> 
             select(item_2 = item_symbol)
