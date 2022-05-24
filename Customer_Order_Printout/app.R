@@ -94,9 +94,9 @@ df_symbol_inputs_milk = data.frame(match_name = c('contains', 'contains', 'conta
                                                   , 'Chocolate MILK', 'Creamline MILK', 'Skim MILK'
                                                   , 'Whole MILK', 'Whole Milk - o'
                                                   , '64 Oz. Heavy Cream')
-                                   ,freeform_text = c('[*]', '[*]', '[*]', '[*]', '[*]'
-                                                      , '[*]', '[*]', '[*]', '[*]', '[*]'
-                                                      , '[*]', '[*]')
+                                   ,freeform_text = c(NA, NA, NA, NA, NA
+                                                      , NA, NA, NA, NA, NA
+                                                      , NA, NA)
                                    ,emoji_name = c(emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2')
                                                    , emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2')
                                                    , emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2')
@@ -110,22 +110,18 @@ df_symbol_inputs_pizza = data.frame(match_name = c('contains', 'contains', 'cont
                                                    ,'Pizza - Four Meat','Pizza - Hot Chicken'
                                                    ,'Pizza - Pepperoni','Pizza - Sausage Pepperoni'
                                                    ,'Pizza - Tomato Basil Garlic','Pizza - Veggie')
-                                    ,freeform_text = c('[**]', '[**]', '[**]', '[**]'
-                                                       , '[**]', '[**]', '[**]', '[**]')
+                                    ,freeform_text = c(NA, NA, NA, NA
+                                                       , NA, NA, NA, NA)
                                     ,emoji_name = c(emo::ji('pizza'), emo::ji('pizza'), emo::ji('pizza')
                                                     , emo::ji('pizza'), emo::ji('pizza'), emo::ji('pizza')
                                                     , emo::ji('pizza'), emo::ji('pizza'))
 )
 
-df_symbol_inputs_other = data.frame(match_name = c('contains', 'contains','contains'
-                                                   ,'contains','contains','contains')
-                                    ,text_name = c('FF Dish - Creole Shrimp & Okra'
-                                                   , 'Pork - Andouille links','Raw Milk Aged Cheddar'
-                                                   , 'Pickup Time','Schlafly Beer'
+df_symbol_inputs_other = data.frame(match_name = c('contains','contains')
+                                    ,text_name = c('Schlafly Beer'
                                                    , 'Pre-ordered Plants')
-                                    ,freeform_text = c('[**]', '[andouille]', '[1]',NA, NA,NA)
-                                    ,emoji_name = c(emo::ji('fried_shrimp'), NA, emo::ji('cheese')
-                                                    , emo::ji('clock3'), emo::ji('beer')
+                                    ,freeform_text = c(NA, NA)
+                                    ,emoji_name = c(emo::ji('beer')
                                                     , emo::ji('seedling'))
 )
 df_symbol_inputs_orig = df_symbol_inputs_milk |> 
@@ -1669,7 +1665,7 @@ server <- function(input, output, session) {
     output$step3b_text <- renderUI({
       HTML("Check Deletion Results.<br>
            <ul>
-            <li>If issues redue Step 3a.
+            <li>If issues redo Step 3a.
             <li>If no issues Process Step 3b.
            <ul>")
     })
@@ -2192,7 +2188,7 @@ server <- function(input, output, session) {
     output$step4b_text <- renderUI({
       HTML("Check Emoji/Text Results.<br>
            <ul>
-            <li>If issues redue Step 4a.
+            <li>If issues redo Step 4a.
             <li>If no issues Process Step 4b.
            <ul>")
     })
@@ -2711,7 +2707,7 @@ server <- function(input, output, session) {
     output$step5b_text <- renderUI({
       HTML("Download and Check Format Results.<br>
            <ul>
-            <li>If issues redue Step 5a.
+            <li>If issues redo Step 5a.
             <li>If no issues you can print. 
            <ul>")
     })
