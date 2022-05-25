@@ -231,6 +231,7 @@ ui <- fluidPage(
         uiOutput("example_share_list"),
         uiOutput("button_1b_rui"),
         h4(textOutput("step1c")),
+        h5(uiOutput("instructions_1c_rui")),
         uiOutput("button_1c_rui"),
         h3(uiOutput("step1")),
         h3(uiOutput("step1_"))
@@ -519,6 +520,13 @@ server <- function(input, output, session) {
         read_csv() -> df
       
       if(paste0(colnames(df), collapse = ",") == 'Pickup Site,First Name,Last Name,Order'){
+        output$instructions_1c_rui <- renderUI(
+          HTML("Check (lightly review) Member Orders.<br>
+           <ul>
+            <li>If issues redo Step 1b.
+            <li>If no issues Process Step 1c.
+           <ul>")
+        )
         output$button_1c_rui <- renderUI(
           actionButton("ppp_file","Step 1c. Process File"),
         )
