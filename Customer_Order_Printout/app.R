@@ -356,6 +356,7 @@ ui <- fluidPage(
                  uiOutput("process_5a_rui"),
                  uiOutput("download_5a_excel"),
                  uiOutput("download_5a_openo"),
+                 uiOutput("download_5a_excel_97"),
                  
                  #h4(uiOutput("step5b")),
                  h5(uiOutput("step5b_text")),
@@ -2710,6 +2711,19 @@ server <- function(input, output, session) {
       )
       
       downloadButton("download_openo", label = "Open Office Download", class = "btn-block")
+    })
+    
+    output$download_5a_excel_97 <- renderUI({
+      output$download_excel_97 = downloadHandler(
+        filename = function() {
+          paste0('pull_sheet_excel_',input$date_value,'.xls')
+        },
+        content = function(file) {
+          saveWorkbook(wb_excel$data, file, overwrite = TRUE)
+        }
+      )
+      
+      downloadButton("download_excel_97", label = "Excel '97 Download", class = "btn-block")
     })
     
     output$step5b_text <- renderUI({
