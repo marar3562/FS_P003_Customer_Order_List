@@ -742,6 +742,7 @@ column_print_comb_openo = optimize_columns(df_long_del, 46) # Have to make all r
 
 ```
 
+
 ## adding in symbols or emojis
 
 ```{r}
@@ -958,6 +959,34 @@ df_long_symbol_excel = add_item_styling(column_print_comb_excel)
 df_long_symbol_openo = add_item_styling(column_print_comb_openo)
 # df_long_symbol_sheets = add_item_styling(column_print_comb_sheets)
 
+```
+
+## PDF attempt
+
+Still having issue with emojis in output.
+Potential next attempt might be using reticulate along with Python to get result necessary
+
+```{r}
+pdf("multipage_test.pdf")
+
+print_pages = df_long_symbol_excel |> select(group_name, page_n) |> distinct()
+
+for (x in 1:dim(print_pages)[1]) {
+  v = df_long_symbol_excel |>
+    filter(group_name == print_pages[x,]$group_name 
+           & page_n == print_pages[x,]$page_n
+           & column == 1) |>
+    select(item_symbol) |> 
+    cbind(df_long_symbol_excel |>
+    filter(group_name == print_pages[x,]$group_name 
+           & page_n == print_pages[x,]$page_n
+           & column == 2) |>
+    select(item_symbol))
+  grid::grid.newpage()
+  gridExtra::grid.table(v, rows = NULL)
+}
+
+dev.off
 ```
 
 ## Highlight Share / customer names (via Excel)
