@@ -94,9 +94,9 @@ df_symbol_inputs_milk = data.frame(match_name = c('contains', 'contains', 'conta
                                                   , 'Chocolate MILK', 'Creamline MILK', 'Skim MILK'
                                                   , 'Whole MILK', 'Whole Milk - o'
                                                   , '64 Oz. Heavy Cream')
-                                   ,freeform_text = c(NA, NA, NA, NA, NA
-                                                      , NA, NA, NA, NA, NA
-                                                      , NA, NA)
+                                   ,freeform_text = c('*', '*', '*', '*', '*'
+                                                      , '*', '*', '*', '*', '*'
+                                                      , '*', '*')
                                    ,emoji_name = c(emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2')
                                                    , emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2')
                                                    , emo::ji('cow2'), emo::ji('cow2'), emo::ji('cow2')
@@ -110,8 +110,8 @@ df_symbol_inputs_pizza = data.frame(match_name = c('contains', 'contains', 'cont
                                                    ,'Pizza - Four Meat','Pizza - Hot Chicken'
                                                    ,'Pizza - Pepperoni','Pizza - Sausage Pepperoni'
                                                    ,'Pizza - Tomato Basil Garlic','Pizza - Veggie')
-                                    ,freeform_text = c(NA, NA, NA, NA
-                                                       , NA, NA, NA, NA)
+                                    ,freeform_text = c('**', '**', '**', '**'
+                                                       , '**', '**', '**', '**')
                                     ,emoji_name = c(emo::ji('pizza'), emo::ji('pizza'), emo::ji('pizza')
                                                     , emo::ji('pizza'), emo::ji('pizza'), emo::ji('pizza')
                                                     , emo::ji('pizza'), emo::ji('pizza'))
@@ -120,7 +120,7 @@ df_symbol_inputs_pizza = data.frame(match_name = c('contains', 'contains', 'cont
 df_symbol_inputs_other = data.frame(match_name = c('contains','contains')
                                     ,text_name = c('Schlafly Beer'
                                                    , 'Pre-ordered Plants')
-                                    ,freeform_text = c(NA, NA)
+                                    ,freeform_text = c('***', '***')
                                     ,emoji_name = c(emo::ji('beer')
                                                     , emo::ji('seedling'))
 )
@@ -356,7 +356,7 @@ ui <- fluidPage(
                  uiOutput("process_5a_rui"),
                  uiOutput("download_5a_excel"),
                  uiOutput("download_5a_openo"),
-                 uiOutput("download_5a_excel_97"),
+                 # uiOutput("download_5a_excel_97"),
                  
                  #h4(uiOutput("step5b")),
                  h5(uiOutput("step5b_text")),
@@ -2165,7 +2165,7 @@ server <- function(input, output, session) {
         mutate(quantity = ifelse(is.na(quantity), '', as.character(quantity))
                , item = ifelse(is.na(item), '', item)
                , item_symbol = ifelse(quantity == '', item, paste0(quantity,'x',item))
-               , qty_symbol = ifelse(quantity > 1, emo::ji('plus'), '')
+               , qty_symbol = ifelse(quantity > 1, '+', '') ##emo::ji('plus')
                , item_symbol = ifelse(is.na(symbol_text)
                                       , paste0(qty_symbol, item_symbol)
                                       , paste0(qty_symbol, symbol_text, item_symbol))
@@ -2713,18 +2713,18 @@ server <- function(input, output, session) {
       downloadButton("download_openo", label = "Open Office Download", class = "btn-block")
     })
     
-    output$download_5a_excel_97 <- renderUI({
-      output$download_excel_97 = downloadHandler(
-        filename = function() {
-          paste0('pull_sheet_excel_',input$date_value,'.xls')
-        },
-        content = function(file) {
-          saveWorkbook(wb_excel$data, file, overwrite = TRUE)
-        }
-      )
-      
-      downloadButton("download_excel_97", label = "Excel '97 Download", class = "btn-block")
-    })
+    # output$download_5a_excel_97 <- renderUI({
+    #   output$download_excel_97 = downloadHandler(
+    #     filename = function() {
+    #       paste0('pull_sheet_excel_',input$date_value,'.xls')
+    #     },
+    #     content = function(file) {
+    #       saveWorkbook(wb_excel$data, file, overwrite = TRUE)
+    #     }
+    #   )
+    #   
+    #   downloadButton("download_excel_97", label = "Excel '97 Download", class = "btn-block")
+    # })
     
     output$step5b_text <- renderUI({
       HTML("Download and Check Format Results.<br>
