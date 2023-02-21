@@ -1850,14 +1850,14 @@ server <- function(input, output, session) {
         group_by(group_name, page_n) |> 
         mutate(row_n = rank(row_number()))
       
-      stopifnot(column1_w_groups |> 
-                  filter(row_n > row_max+1) |> 
-                  summarise(n=n()) |> 
+      stopifnot(column1_w_groups |>
+                  filter(row_n > row_max+1) |>
+                  summarise(n=n()) |>
                   pull() == 0)
-      
-      stopifnot(column2_w_groups |> 
-                  filter(row_n > row_max+1) |> 
-                  summarise(n=n()) |> 
+
+      stopifnot(column2_w_groups |>
+                  filter(row_n > row_max+1) |>
+                  summarise(n=n()) |>
                   pull() == 0)
       
       column1_print = print_full |> 
