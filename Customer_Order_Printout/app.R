@@ -563,7 +563,8 @@ server <- function(input, output, session) {
       rename_all(tolower) |> 
       select_all(funs(gsub(" ", ".", .))) %>%
       rename(group_name = pickup.site, firstname = first.name, lastname = last.name) |> 
-      mutate(id = row_number())
+      mutate(id = row_number()) |> 
+      mutate(group_name = ifelse(str_sub(group_name,1,13) == 'Home Delivery', 'Home Delivery', group_name))
     
     ## Group Check
     #####################################################################
