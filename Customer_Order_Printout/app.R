@@ -559,12 +559,44 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$ppp_file,{
-    df_orig = df_format$data |> 
+    df_home_del = df_format$data |> 
       rename_all(tolower) |> 
       select_all(funs(gsub(" ", ".", .))) %>%
       rename(group_name = pickup.site, firstname = first.name, lastname = last.name) |> 
       mutate(id = row_number()) |> 
-      mutate(group_name = ifelse(str_sub(group_name,1,13) == 'Home Delivery', 'Home Delivery', group_name))
+      # mutate(group_name = ifelse(str_sub(group_name,1,13) == 'Home Delivery', 'Home Delivery', group_name))
+      mutate(group_name = trimws(group_name),
+             lastname = trimws(lastname),
+             site_length = str_length(group_name),
+             name_length = str_length(lastname),
+             home_delivery = str_detect(group_name, "Home Delivery -"),
+             pickup_detail_v1 = ifelse(home_delivery == TRUE, str_sub(group_name, site_length - 3, site_length), NA),
+             pickup_detail_v2 = ifelse(home_delivery == TRUE, str_sub(lastname, name_length - 3, name_length), NA)
+      ) 
+    home_del_check = df_home_del |> 
+      mutate(check = pickup_detail_v1 == pickup_detail_v2) |> 
+      filter(check == FALSE | 
+               (is.na(pickup_detail_v1) & !is.na(pickup_detail_v1)) | 
+               (!is.na(pickup_detail_v1) & is.na(pickup_detail_v1))
+      ) |> 
+      select(group_name, firstname, lastname, pickup_detail_v1, pickup_detail_v2)
+    
+    
+    if (home_del_check |> summarise(n = n()) |> pull() > 0) {
+      output$preview1 <- renderDataTable(datatable(group_check))
+      showModal(modalDialog(
+        title = paste0(emo::ji('stop_sign')," Error"),
+        HTML("There are members who's Home Delivery short description do not match their Group Name Home Delivery short description.<br>
+             Double check that all Home Delivery short description matches between the member and group name"),
+        easyClose = TRUE
+      ))
+    }
+    
+    df_orig = df_home_del |> 
+      mutate(lastname = trimws(ifelse(!is.na(pickup_detail_v1), str_replace(lastname, pickup_detail_v1, ''), lastname)),
+             group_name = ifelse(home_delivery == TRUE, paste0('Home Delivery - ',pickup_detail_v1), group_name)
+      ) |> 
+      select(-site_length, -name_length, -pickup_detail_v1, -pickup_detail_v2, -home_delivery)
     
     ## Group Check
     #####################################################################
