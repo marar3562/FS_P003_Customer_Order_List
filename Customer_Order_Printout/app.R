@@ -28,7 +28,7 @@ sh_delete = range_read('1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ'
 ) |> arrange(item)
 sr = range_read("1xs8TAMrSsJuL_gou4y0DBH3IkaTH0eBn_pdboCGWFTI"
                 ,sheet = 'share_rotation'
-                ,col_types = 'Diciccc'
+                ,col_types = 'Dicicncc'
 )
 
 sr_wed = sr |> 
