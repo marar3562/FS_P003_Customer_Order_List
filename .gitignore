@@ -12,3 +12,6 @@ farmigo_downloads/
 
 # shinyapps.io
 rsconnect/
+
+# remove history file
+.Rhistory
