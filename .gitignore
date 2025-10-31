@@ -1,5 +1,5 @@
 # Secrets
-.secrets/
+*.secrets/
 
 # R notebook html files
 *.nb.html
