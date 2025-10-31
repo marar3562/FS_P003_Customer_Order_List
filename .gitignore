@@ -5,7 +5,7 @@
 *.nb.html
 
 # download files (will delete out later)
-# farmigo_downloads/
+farmigo_downloads/
 
 # dcf file of shinyapps
 *.dcf

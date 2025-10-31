@@ -7,6 +7,10 @@
 # download files
 farmigo_downloads/
 
+# member pickup files
+Member Pick-up Details*.csv
+
+
 # dcf file of shinyapps
 *.dcf
 
