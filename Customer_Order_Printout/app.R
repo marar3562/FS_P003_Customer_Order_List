@@ -201,6 +201,7 @@ ui <- fluidPage(
     div(id = "page-top",
         fluidRow(img(src="logo.png", style = "width: 100px")
                  ,column(3, radioButtons("current_theme", "App Theme:", c("Dark" = "slate", "Light" = "flatly"), inline = TRUE))
+                 ,column(3, tags$a(href="https://github.com/marar3562/FS_P003_Customer_Order_List", "Click to see Github repo"))
         )
     ),
     div(
