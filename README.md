@@ -2,12 +2,15 @@
 After members have made their orders, the Fair Shares team has only a few hours before shares have to start to leave our store. This dashboard takes the member order data, transforms and cleans the data set for a consistent and optimized printable output. The owners originally cut and paste member orders together for staff to fill orders. This dashboard eliminates that manual labor for a more streamlined out. 
 
 Below is a snapshot of what that output looks like in this dashboard...
+
 ![alt text](dashboard_output.png "Dashboard Output")
 
 Here is how Farmigo outputs this information...
+
 ![alt text](farmigo_output.png "Farmigo Output")
 
 Here is what staff used to use after they cut and taped the Farmigo orders together. This file is after team members have filled orders so that is what the marks to left and right of each item are for. Showing items have been filled or not.
+
 ![alt text](farmigo_cut_taped.png "Farmigo Cut and Taped Output with team marks")
 
 
