@@ -17,16 +17,19 @@ library(thematic)
 
 ## load settings data
 gs4_auth(cache = ".secrets", email = TRUE, use_oob = TRUE) #use in shinyapps prod to connect to data
-sh_shares = range_read('1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ'
+# sheet_setting = '1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ' #original source
+sheet_setting = '18mm4V_5AjcBDY4CSc9HwL7YWlgvvkJuSx3oyupMPlkM' #personal
+sh_shares = range_read(sheet_setting
                        ,sheet = 'shares'
                        ,col_types = 'ccccc--'
                        ,skip = 1
 )
-sh_delete = range_read('1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ'
+sh_delete = range_read(sheet_setting
                        ,sheet = 'delete'
                        ,col_types = 'c'
 ) |> arrange(item)
-sr = range_read("1xs8TAMrSsJuL_gou4y0DBH3IkaTH0eBn_pdboCGWFTI"
+sr = range_read( #"1xs8TAMrSsJuL_gou4y0DBH3IkaTH0eBn_pdboCGWFTI" #original source
+                "1l-K0Ws5GYGcgsJssUNzhPXtoGg_EuoXHUTPcC1MT35Y" #personal
                 ,sheet = 'share_rotation'
                 ,col_types = 'Dicicncc'
 )
