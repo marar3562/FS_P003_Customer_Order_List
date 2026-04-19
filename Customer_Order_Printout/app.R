@@ -28,8 +28,8 @@ sh_delete = range_read(sheet_setting
                        ,sheet = 'delete'
                        ,col_types = 'c'
 ) |> arrange(item)
-sr = range_read( #"1xs8TAMrSsJuL_gou4y0DBH3IkaTH0eBn_pdboCGWFTI" #original source
-                "1l-K0Ws5GYGcgsJssUNzhPXtoGg_EuoXHUTPcC1MT35Y" #personal
+sr = range_read("1xs8TAMrSsJuL_gou4y0DBH3IkaTH0eBn_pdboCGWFTI" #original source
+                # "1l-K0Ws5GYGcgsJssUNzhPXtoGg_EuoXHUTPcC1MT35Y" #personal
                 ,sheet = 'share_rotation'
                 ,col_types = 'Dicicncc'
 )
