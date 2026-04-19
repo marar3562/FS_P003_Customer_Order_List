@@ -17,8 +17,8 @@ library(thematic)
 
 ## load settings data
 gs4_auth(cache = ".secrets", email = TRUE, use_oob = TRUE) #use in shinyapps prod to connect to data
-# sheet_setting = '1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ' #original source
-sheet_setting = '18mm4V_5AjcBDY4CSc9HwL7YWlgvvkJuSx3oyupMPlkM' #personal
+sheet_setting = '1pEEGA3mawQWmgDtIjJmpBMPws8_-EyEqPtQlucGVlNQ' #original source
+# sheet_setting = '18mm4V_5AjcBDY4CSc9HwL7YWlgvvkJuSx3oyupMPlkM' #personal
 sh_shares = range_read(sheet_setting
                        ,sheet = 'shares'
                        ,col_types = 'ccccc--'
